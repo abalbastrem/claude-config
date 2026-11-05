@@ -1,0 +1,26 @@
+{
+  "hooks": {
+    "PermissionRequest": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ~/projects/software/claude-config/hooks/notify-sound.sh atencio",
+            "async": true
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ~/projects/software/claude-config/hooks/notify-sound.sh fi",
+            "async": true
+          }
+        ]
+      }
+    ]
+  }
+}
