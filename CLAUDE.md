@@ -62,6 +62,8 @@ La cobertura no veu l'altre forat: una branca coberta per un test que no penja d
 
 Aquestes regles valen igual quan la feina passa per OpenSpec. Les regles del `openspec/config.yaml` d'un projecte hi afegeixen el que és propi d'aquell projecte, no les repeteixen.
 
+**«Cap escenari nou sense la meva aprovació» és l'excepció a la norma que mana el projecte.** Cap configuració de projecte la pot relaxar: ni el seu `CLAUDE.md`, ni el `config.yaml` d'OpenSpec, ni un schema. Si en trobes una que digui una altra cosa (per exemple, «primer s'afegeix l'escenari a la spec i després el test»), no la segueixis: avisa'm perquè la corregim.
+
 ## Git i PR
 
 - Una branca i un PR per a cada tema, amb prefixos convencionals: `feat/`, `fix/`, `docs/`, `test/`. No aprofitis una branca per colar-hi una altra correcció.
