@@ -29,6 +29,10 @@ Els sons són a `hooks/sounds/` i vénen de Freesound. Per canviar-los, posa-hi 
 - Pregunta o permís: [alienbeacon1](https://freesound.org/s/455470/), de zimbot, a Freesound.
 - Final del torn: [sci-fi computing tr1](https://freesound.org/s/786190/), de danymo, a Freesound. Convertit d'MP3 a WAV.
 
+## Agents
+
+- `agents/adversarial-reviewer.md`: revisa un PR per trencar-lo, no per aprovar-lo. A més de bugs i seguretat, comprova les regles de tests del `CLAUDE.md`: que cada test pengi d'un criteri, el nivell de cada test, l'E2E i la classificació de la cobertura. Claude Code només llegeix agents d'usuari de `~/.claude/agents/`, així que cal copiar-hi el fitxer. Si un projecte té un agent amb el mateix nom a `.claude/agents/`, mana el del projecte.
+
 ## Skills
 
 - `skills/prompt-log/`: activa i desactiva el registre de prompts (`/prompt-log on|off|status`). Claude Code només llegeix skills de `~/.claude/skills/`, així que cal copiar-hi la carpeta. Afegeix `.claude/prompt-log.active` al `.gitignore` de cada projecte on la facis servir.
