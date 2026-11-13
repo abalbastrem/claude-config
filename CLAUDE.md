@@ -20,17 +20,38 @@ PRD → Epics → Stories amb Given/When/Then → Subtasks → implementació am
 
 ## Tests
 
-TDD diu quan escriure el test, no a quin nivell. Cada criteri es prova per defecte des de fora, i només es baixa de nivell quan compensa:
+TDD diu quan escriure el test, no a quin nivell. Cada criteri es prova per defecte des de fora, i només es baixa de nivell quan compensa. Cada nivell té un paper:
 
-| Nivell | Quan |
-|---|---|
-| **API:** HTTP i base de dades reals | Per defecte al backend |
-| **Component:** API simulada | Per defecte al frontend |
-| **E2E:** tot real | Pocs: recorreguts crítics i el que depèn que frontend i backend encaixin |
-| **Unitari** | Només quan la lògica té massa combinacions per provar-les còmodament per la API, o decisions pròpies com reintents o traducció d'errors |
+| Nivell | Paper | Quants |
+|---|---|---|
+| **Endpoint:** HTTP i base de dades reals, sense simular-la | Prova **cada criteri** del backend, casos límit inclosos. És la base i va primer | Tots |
+| **Component:** API simulada | Prova cada criteri **visual**: el que una persona veu i pot fer | Tots els que tenen pantalla |
+| **E2E:** tot real | Prova que **la Story està connectada** de cap a cap, pel camí feliç. No verifica criteris: per això hi ha els dos nivells d'abans | Un per Story amb pantalla. Cap si la Story és només API o només una regla que l'endpoint ja cobreix |
+| **Unitari** | Lògica amb massa combinacions per provar-la còmodament per l'endpoint, o decisions tècniques pròpies com reintents o traducció d'errors | L'excepció |
 
-- No escriguis un test unitari de lògica simple (un `if` de dues branques, propagar un error): repeteix el codi, i la API ja el cobreix.
+- No escriguis un test unitari de lògica simple (un `if` de dues branques, propagar un error): repeteix el codi, i el test d'endpoint ja el cobreix.
 - Simular un servei extern i escriure un test unitari són decisions diferents. Un servei extern se simula sempre, perquè no controles quan falla, i la seva fallada es prova per la API si la funció no té lògica pròpia.
+
+### Cap test sense criteri
+
+Tot test penja d'un escenari de la Story, o d'una decisió tècnica que jo hagi acceptat. Un test sobre una branca que ningú no ha decidit converteix una casualitat en contracte.
+
+Si mentre escrius els tests apareix una branca o un cas que cap criteri no recull, **atura't i porta-me'l**. No inventis l'escenari ni escriguis el test pel teu compte: decidir-ho és decisió de producte.
+
+### Cobertura
+
+La mètrica és la **cobertura de branques del codi nou de cada PR** (diff), no la global. És un detector, no un objectiu: no hi ha llindar que bloquegi el PR.
+
+Quan tots els criteris passen, mira les branques del diff que cap test no recorre i classifica cadascuna al PR:
+
+| Què és la branca | Què es fa |
+|---|---|
+| **Un criteri que falta:** comportament visible que importa a algú | Proposa l'escenari. Quan l'aprovo, va a la Story i després es fa el test |
+| **Codi mort o defensiu:** no s'hi pot arribar, perquè una altra capa ja ho impedeix | S'esborra. Si es vol conservar, s'exclou de la cobertura explicant per què |
+| **Decisió tècnica pròpia:** no la veu ningú, però el sistema la pren | Test unitari |
+| **Codi d'una altra Story que s'ha avançat** | S'esborra fins que arribi la seva Story |
+
+La cobertura no veu l'altre forat: una branca coberta per un test que no penja de cap criteri. Aquest el vigila la revisió del PR.
 
 ## Git i PR
 
