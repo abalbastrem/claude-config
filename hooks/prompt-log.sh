@@ -1,12 +1,21 @@
 #!/usr/bin/env bash
 # UserPromptSubmit hook for the `prompt-log` skill.
 # While .claude/prompt-log.active exists, appends every prompt to prompts.md
-# using the course template format (## Prompt N / Modelo / Herramienta / code block).
+# as ## Prompt N / model / tool / code block.
+# Labels: if prompts.md already uses the Spanish template labels (**Modelo:** /
+# **Herramienta:**, e.g. a course template), it keeps them; otherwise **Model:** / **Tool:**.
 # Never blocks a prompt: every path ends in exit 0.
 
 dir="${CLAUDE_PROJECT_DIR:-.}"
 flag="$dir/.claude/prompt-log.active"
 log="$dir/prompts.md"
+
+model_label="Model"
+tool_label="Tool"
+if [ -f "$log" ] && grep -q '^\*\*\(Modelo\|Herramienta\):\*\*' "$log"; then
+  model_label="Modelo"
+  tool_label="Herramienta"
+fi
 
 [ -f "$flag" ] || exit 0
 
@@ -26,7 +35,7 @@ if [ -n "$transcript" ] && [ -f "$transcript" ]; then
   model=$(grep -o '"model":"[^"]*"' "$transcript" | grep -v '<synthetic>' | tail -1 | cut -d'"' -f4)
 fi
 if [ -z "$model" ] && [ -f "$log" ]; then
-  model=$(grep '^\*\*Modelo:\*\* ' "$log" | tail -1 | sed 's/^\*\*Modelo:\*\* //')
+  model=$(grep '^\*\*\(Modelo\|Model\):\*\* ' "$log" | tail -1 | sed 's/^\*\*[A-Za-z]*:\*\* //')
 fi
 [ -n "$model" ] || model="unknown"
 
@@ -42,8 +51,8 @@ fence=$(printf '%*s' "$fence_len" '' | tr ' ' '`')
 
 {
   printf '\n## Prompt %d\n\n' "$n"
-  printf '**Modelo:** %s\n' "$model"
-  printf '**Herramienta:** Claude Code\n\n'
+  printf '**%s:** %s\n' "$model_label" "$model"
+  printf '**%s:** Claude Code\n\n' "$tool_label"
   printf '%s\n%s\n%s\n' "$fence" "$prompt" "$fence"
 } >> "$log"
 

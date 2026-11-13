@@ -17,18 +17,21 @@ You do not write the prompts yourself. A `UserPromptSubmit` hook
 that flag, so logging keeps working after context compaction, `/clear` or a new session, and
 costs no tool calls per prompt.
 
-Each entry follows the course template already in `prompts.md`:
+Each entry looks like this:
 
 ````markdown
 ## Prompt N
 
-**Modelo:** <model from the session transcript>
-**Herramienta:** Claude Code
+**Model:** <model from the session transcript>
+**Tool:** Claude Code
 
 ```
 <the prompt, verbatim>
 ```
 ````
+
+If `prompts.md` already uses the Spanish labels `**Modelo:**` / `**Herramienta:**` (for example,
+a course template), the hook keeps those labels instead, so the file stays consistent.
 
 The hook never logs:
 
@@ -43,11 +46,12 @@ Read `$ARGUMENTS`. If it is empty, treat it as `status`.
 
 1. Create `.claude/prompt-log.active` (empty file).
 2. If `prompts.md` does not exist, create it with a `# Prompts` heading.
-3. If `prompts.md` still contains the template's example entry (the `## Prompt 1` whose code
-   block starts with `Este es el ejemplo. Bórralo.`), delete that example entry, from its
-   `## Prompt 1` heading through its `**Qué salió:**` line, and the
+3. Only if `prompts.md` comes from a template that ships a placeholder entry, delete that
+   placeholder so it isn't numbered as a real prompt. Known case, the AI4Devs course template:
+   the `## Prompt 1` whose code block starts with `Este es el ejemplo. Bórralo.`, from its
+   heading through its `**Qué salió:**` line, plus the
    `Borra el ejemplo de abajo cuando escribas el primero.` line. Leave the rest of the
-   template text untouched.
+   template text untouched. If there is no placeholder, skip this step.
 4. Tell the user, in one or two lines, that logging is on, that the next prompt is the first
    one recorded, and that adding `#nolog` anywhere in a prompt skips it.
 
@@ -67,4 +71,4 @@ Say whether `.claude/prompt-log.active` exists and how many entries `prompts.md`
 - Never edit or reword the logged prompts. The point of the file is to show the prompts exactly
   as they were sent, typos included.
 - The hook cannot see the effort level, only the model. If the user wants it in the entry
-  (e.g. `Opus 5.5 xHigh`), they edit the `**Modelo:**` line by hand.
+  (e.g. `Opus 5.5 xHigh`), they edit the model line by hand.

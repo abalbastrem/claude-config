@@ -19,7 +19,7 @@ Per comprovar que s'aplica, executa `/memory` dins de Claude Code.
 ## Hooks
 
 - `hooks/notify-sound.sh`: fa sonar un avís de Windows quan Claude Code fa una pregunta, demana un permís o acaba. Necessita Windows i `python` al `PATH`.
-- `hooks/prompt-log.sh`: mentre existeix `.claude/prompt-log.active` al projecte, afegeix cada prompt a `prompts.md` amb el format de la plantilla del curs. El fa servir la skill `prompt-log`. Necessita `jq`.
+- `hooks/prompt-log.sh`: mentre existeix `.claude/prompt-log.active` al projecte, afegeix cada prompt a `prompts.md` (número, model, eina i el prompt literal). Si el fitxer ja fa servir les etiquetes `**Modelo:**` / `**Herramienta:**` d'una plantilla en castellà, com la del curs AI4Devs, les manté; si no, escriu `**Model:**` / `**Tool:**`. El fa servir la skill `prompt-log`. Necessita `jq`.
 - `hooks/settings-hooks.json`: la definició dels hooks. Claude Code no pot importar-la, així que cal copiar-ne el bloc `hooks` a `~/.claude/settings.json`.
 
 Els sons són a `hooks/sounds/` i vénen de Freesound. Per canviar-los, posa-hi un `.wav` (convertit amb `ffmpeg` si és un altre format) i canvia el nom de fitxer a `hooks/notify-sound.sh`. El canvi s'aplica de seguida, sense reiniciar.
