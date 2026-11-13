@@ -24,13 +24,13 @@ TDD diu quan escriure el test, no a quin nivell. Cada criteri es prova per defec
 
 | Nivell | Paper | Quants |
 |---|---|---|
-| **Endpoint:** HTTP i base de dades reals, sense simular-la | Prova **cada criteri** del backend, casos límit inclosos. És la base i va primer | Tots |
-| **Component:** API simulada | Prova cada criteri **visual**: el que una persona veu i pot fer | Tots els que tenen pantalla |
+| **Interfície pública:** el sistema real, amb les dependències pròpies (base de dades inclosa) sense simular. Cada projecte diu quina és la seva interfície: un endpoint HTTP, una comanda de CLI o l'API d'una llibreria | Prova **cada criteri**, casos límit inclosos. És la base i va primer | Tots |
+| **Component:** el que hi ha darrere de la pantalla, simulat | Prova cada criteri **visual**: el que una persona veu i pot fer | Tots els que tenen pantalla |
 | **E2E:** tot real | Prova que **la Story està connectada** de cap a cap, pel camí feliç. No verifica criteris: per això hi ha els dos nivells d'abans | Un per Story amb pantalla. Cap si la Story no en té. Saltar-se'l amb pantalla es justifica al PR |
-| **Unitari** | Lògica amb massa combinacions per provar-la còmodament per l'endpoint, o decisions tècniques pròpies com reintents o traducció d'errors | L'excepció |
+| **Unitari** | Lògica amb massa combinacions per provar-la còmodament per la interfície pública, o decisions tècniques pròpies com reintents o traducció d'errors | L'excepció |
 
-- No escriguis un test unitari de lògica simple (un `if` de dues branques, propagar un error): repeteix el codi, i el test d'endpoint ja el cobreix.
-- Simular un servei extern i escriure un test unitari són decisions diferents. Un servei extern se simula sempre, perquè no controles quan falla, i la seva fallada es prova per la API si la funció no té lògica pròpia.
+- No escriguis un test unitari de lògica simple (un `if` de dues branques, propagar un error): repeteix el codi, i el test d'interfície pública ja el cobreix.
+- Simular un servei extern i escriure un test unitari són decisions diferents. Un servei extern se simula sempre, perquè no controles quan falla, i la seva fallada es prova per la interfície pública si la funció no té lògica pròpia.
 
 ### Cap test sense criteri
 
