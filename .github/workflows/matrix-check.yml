@@ -1,0 +1,69 @@
+name: Traceability matrix
+
+# Reusable workflow: runs a project's tests and `matrix.ts --check`, so a PR with a
+# test without a scenario, a scenario without a test (or failing, or only skipped),
+# or an out-of-date matrix.md goes red. The pre-push hook is the local gate; this
+# is the net for whatever skips it (--no-verify, a clone without hooks, a web edit,
+# another contributor). How to call it: the "Traceability matrix" section of the
+# README.
+#
+# It needs no secrets, so it also runs on PRs from forks.
+
+on:
+  workflow_call:
+    inputs:
+      matrix-dir:
+        description: Folder with the matrix config.json and matrix.md, relative to the project root.
+        type: string
+        required: true
+      setup:
+        description: Shell commands that install dependencies and prepare the project (env files, migrations, browsers).
+        type: string
+        required: true
+      test-command:
+        description: Runs every test runner and leaves the results where config.json says (with --stamp first).
+        type: string
+        default: make test
+      node-version:
+        type: string
+        default: '24'
+
+permissions:
+  contents: read
+
+jobs:
+  matrix:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      # Full history: coverage of new code is measured against the base branch.
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      # The matrix tool, outside the project tree. Projects reach it through CLAUDE_CONFIG.
+      - uses: actions/checkout@v6
+        with:
+          repository: abalbastrem/claude-config
+          path: claude-config
+          fetch-depth: 1
+          persist-credentials: false
+      - run: mv claude-config "$RUNNER_TEMP/claude-config"
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ inputs.node-version }}
+
+      - name: Set up the project
+        run: ${{ inputs.setup }}
+
+      - name: Run the tests
+        env:
+          CLAUDE_CONFIG: ${{ runner.temp }}/claude-config
+        run: ${{ inputs.test-command }}
+
+      # Runs even if some test failed: the matrix says which scenario is red.
+      - name: Check the matrix
+        if: ${{ !cancelled() }}
+        run: node "$RUNNER_TEMP/claude-config/tools/matrix/matrix.ts" --dir "${{ inputs.matrix-dir }}" --check
