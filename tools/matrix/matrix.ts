@@ -27,7 +27,7 @@ import { fileURLToPath } from 'node:url'
 type TestState = 'pass' | 'fail' | 'skipped'
 type ScenarioState = TestState | 'no-test'
 
-// `container` is the describe (Vitest) or group (Japa) the test lives in. It never carries the
+// `container` is the describe (Vitest, Playwright) or group (Japa) the test lives in. It never carries the
 // test's IDs (those go on the test itself), but it helps explain an orphan.
 export type Test = { runner: string; level: string; file: string; title: string; state: TestState; container?: string }
 export type Scenario = {
@@ -66,9 +66,9 @@ export type Result = {
   markdown: string
 }
 
-// `levels` (Japa) maps a suite name to a test level; `level` (Vitest) sets the level of the whole
-// runner. Defaults: Japa "unit" → unit, "e2e" → e2e, any other suite → public interface;
-// Vitest → component.
+// `levels` (Japa) maps a suite name to a test level; `level` (Vitest, Playwright) sets the level of
+// the whole runner. Defaults: Japa "unit" → unit, "e2e" → e2e, any other suite → public interface;
+// Vitest → component; Playwright → e2e.
 type ResultSource = { runner: string; file: string; root?: string; levels?: Record<string, string>; level?: string }
 type Config = {
   results: ResultSource[]
@@ -293,6 +293,41 @@ function readVitest(text: string, source: ResultSource, root: string, errors: st
   return tests
 }
 
+// Playwright, json reporter. Paths in the report are relative to the test directory
+// (`config.rootDir`). With several projects (browsers) each one is a test of its own, and the
+// project name goes into the container. A run that dies before any test (a webServer that
+// does not start) leaves its reason in the top-level `errors`.
+function readPlaywright(text: string, source: ResultSource, root: string, errors: string[]): Test[] {
+  let report: Record<string, any>
+  try {
+    report = JSON.parse(text)
+  } catch {
+    errors.push(`The playwright results in ${source.file} are not valid JSON (a run cut short?). Run the tests again.`)
+    return []
+  }
+  for (const e of report.errors ?? []) {
+    errors.push(`playwright could not run: ${String(e.message ?? e.value ?? '').split('\n')[0]}`)
+  }
+  const testDir = String(report.config?.rootDir ?? root)
+  const tests: Test[] = []
+  const walk = (suite: Record<string, any>, describes: string[]) => {
+    for (const spec of suite.specs ?? []) {
+      const path = toPosix(relative(root, join(testDir, spec.file ?? suite.file ?? '')))
+      const runs: Record<string, any>[] = spec.tests ?? []
+      for (const t of runs) {
+        const state: TestState =
+          t.status === 'skipped' ? 'skipped' : t.status === 'expected' || t.status === 'flaky' ? 'pass' : 'fail'
+        const container = [...describes, ...(runs.length > 1 && t.projectName ? [t.projectName] : [])].join(' › ')
+        tests.push({ runner: 'playwright', level: source.level ?? 'e2e', file: path, title: spec.title, state, ...(container ? { container } : {}) })
+      }
+    }
+    for (const child of suite.suites ?? []) walk(child, child.title ? [...describes, child.title] : describes)
+  }
+  // Top-level suites are files: their title is the path, not a describe.
+  for (const file of report.suites ?? []) walk(file, [])
+  return tests
+}
+
 // ---------- Matrix ----------
 
 const cell = (s: string) => s.replace(/\|/g, '\\|')
@@ -465,6 +500,7 @@ export function generate(p: Paths, options: { base?: string } = {}): Result {
     }
     if (source.runner === 'japa') tests.push(...readJapa(text, source))
     else if (source.runner === 'vitest') tests.push(...readVitest(text, source, p.root, errors))
+    else if (source.runner === 'playwright') tests.push(...readPlaywright(text, source, p.root, errors))
     else errors.push(`Unknown runner in config.json: ${source.runner}.`)
   }
 
