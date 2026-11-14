@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Traceability matrix</title>
+<style>
+  :root {
+    --bg: #f7f7f5; --panel: #ffffff; --text: #1d1d1b; --muted: #6b6b66; --line: #e3e3de;
+    --pass: #1f8a4c; --pass-bg: #e3f4ea;
+    --fail: #c62828; --fail-bg: #fbe5e5;
+    --none: #7a7a74; --none-bg: #ececea;
+    --skipped: #b26a00; --skipped-bg: #fdf0d9;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #151514; --panel: #1e1e1c; --text: #ecece8; --muted: #9a9a93; --line: #33332f;
+      --pass: #4cc27f; --pass-bg: #173a26;
+      --fail: #ff6b6b; --fail-bg: #43201f;
+      --none: #a5a59e; --none-bg: #2c2c29;
+      --skipped: #f0a73a; --skipped-bg: #3d2d12;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 1400px; margin: 0 auto; padding: 24px 16px 48px; }
+  header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 16px; margin-bottom: 16px; }
+  h1 { font-size: 22px; margin: 0; }
+  h2 { font-size: 16px; margin: 28px 0 8px; }
+  .connection { font-size: 12px; color: var(--muted); }
+  .connection.down { color: var(--fail); font-weight: 600; }
+  .summary { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 16px; }
+  .figure { padding: 8px 12px; border-radius: 8px; background: var(--panel); border: 1px solid var(--line); min-width: 110px; }
+  .figure b { display: block; font-size: 20px; }
+  .table { overflow-x: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; }
+  table { border-collapse: collapse; width: 100%; min-width: 900px; }
+  th, td { text-align: left; vertical-align: top; padding: 8px 10px; border-bottom: 1px solid var(--line); }
+  th { position: sticky; top: 0; background: var(--panel); font-size: 12px; text-transform: uppercase; letter-spacing: .03em; color: var(--muted); }
+  tr:last-child td { border-bottom: 0; }
+  td.grouped { color: var(--muted); }
+  .id { font-weight: 600; white-space: nowrap; }
+  .origin { font-size: 12px; color: var(--skipped); }
+  .test { display: flex; gap: 6px; align-items: baseline; margin: 2px 0; }
+  .test small { color: var(--muted); }
+  .dot { flex: none; width: 9px; height: 9px; border-radius: 50%; display: inline-block; transform: translateY(1px); }
+  .state { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+  .pass { color: var(--pass); } .pass.state { background: var(--pass-bg); } .pass.dot { background: var(--pass); }
+  .fail { color: var(--fail); } .fail.state { background: var(--fail-bg); } .fail.dot { background: var(--fail); }
+  .no-test { color: var(--none); } .no-test.state { background: var(--none-bg); }
+  .skipped { color: var(--skipped); } .skipped.state { background: var(--skipped-bg); } .skipped.dot { background: var(--skipped); }
+  tr.row-fail td:first-child { box-shadow: inset 3px 0 0 var(--fail); }
+  tr.row-no-test td:first-child { box-shadow: inset 3px 0 0 var(--none); }
+  tr.row-skipped td:first-child { box-shadow: inset 3px 0 0 var(--skipped); }
+  ul.list { margin: 0; padding-left: 18px; }
+  .empty { color: var(--muted); }
+  .warning { background: var(--fail-bg); color: var(--fail); padding: 8px 12px; border-radius: 8px; margin-bottom: 12px; }
+  .coverage { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; margin-bottom: 16px; }
+  .coverage h2 { margin: 0 0 8px; }
+  .coverage table { min-width: 0; }
+  .coverage th, .coverage td { padding: 6px 8px; }
+  .bar { display: inline-block; width: 120px; height: 8px; border-radius: 4px; background: var(--none-bg); vertical-align: middle; margin-right: 8px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--muted); }
+  .note { font-size: 12px; color: var(--muted); margin: 8px 0 0; }
+  details summary { cursor: pointer; margin-top: 8px; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Traceability matrix</h1>
+    <span class="connection" id="connection">Connecting…</span>
+  </header>
+  <div id="errors"></div>
+  <div class="summary" id="summary"></div>
+  <section class="coverage" id="coverage"></section>
+  <div class="table">
+    <table>
+      <thead><tr><th>Capability</th><th>Requirement</th><th>Scenario</th><th>Tests</th><th>State</th></tr></thead>
+      <tbody id="rows"><tr><td colspan="5" class="empty">Waiting for the matrix state…</td></tr></tbody>
+    </table>
+  </div>
+  <h2>Tests without a scenario</h2>
+  <div id="orphans"></div>
+  <h2>Missing results</h2>
+  <div id="missing"></div>
+</main>
+<script>
+  const LABEL = { pass: 'Pass', fail: 'Fail', 'no-test': 'No test', skipped: 'Skipped' }
+  const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c])
+  const $ = (id) => document.getElementById(id)
+
+  function paint(m) {
+    const scenarios = m.scenarios ?? []
+    const orphans = m.orphans ?? []
+    const count = (s) => scenarios.filter((x) => x.state === s).length
+    $('summary').innerHTML = [
+      ['Scenarios', scenarios.length, ''],
+      ['Passing', count('pass'), 'pass'],
+      ['Failing', count('fail'), 'fail'],
+      ['No test', count('no-test'), 'no-test'],
+      ['Skipped', count('skipped'), 'skipped'],
+      ['Tests without a scenario', orphans.length, orphans.length ? 'fail' : ''],
+    ].map(([t, n, c]) => `<div class="figure"><span class="${c}">${t}</span><b class="${c}">${n}</b></div>`).join('')
+
+    let prevCap = null, prevReq = null
+    $('rows').innerHTML = scenarios.map((s) => {
+      const sameCap = s.capability === prevCap
+      const sameReq = sameCap && s.requirement === prevReq
+      prevCap = s.capability; prevReq = s.requirement
+      const tests = s.tests.length
+        ? s.tests.map((t) => `<div class="test"><span class="dot ${t.state}" title="${LABEL[t.state]}"></span><span>${esc(t.title)} <small>· ${esc(t.level)} · ${esc(t.file)}</small></span></div>`).join('')
+        : '<span class="empty">—</span>'
+      const origin = s.origin && s.origin !== 'spec' ? `<div class="origin">${esc(s.origin)}</div>` : ''
+      return `<tr class="row-${s.state}">
+        <td class="${sameCap ? 'grouped' : ''}">${esc(s.capability)}</td>
+        <td class="${sameReq ? 'grouped' : ''}">${esc(s.requirement)}</td>
+        <td><span class="id">${esc(s.id)}</span> · ${esc(s.name)}${origin}</td>
+        <td>${tests}</td>
+        <td><span class="state ${s.state}">${LABEL[s.state]}</span></td>
+      </tr>`
+    }).join('') || '<tr><td colspan="5" class="empty">No scenarios.</td></tr>'
+
+    const list = (items, none) => items.length ? `<ul class="list">${items.join('')}</ul>` : `<p class="empty">${none}</p>`
+    $('orphans').innerHTML = list(orphans.map((t) => `<li><span class="fail">${esc(t.title)}</span> <small>· ${esc(t.level)} · ${esc(t.file)}</small></li>`), 'None.')
+    $('missing').innerHTML = list((m.missingResults ?? []).map((f) => `<li>${esc(f)} — run the tests</li>`), 'None: there are results from every runner.')
+    $('errors').innerHTML = (m.errors ?? []).map((e) => `<div class="warning">${esc(e)}</div>`).join('')
+    paintCoverage(m.coverage)
+
+    const time = new Date(m.generatedAt ?? Date.now()).toLocaleTimeString()
+    $('connection').className = 'connection'
+    $('connection').textContent = `Live · updated at ${time}`
+  }
+
+  function paintCoverage(cov) {
+    const layers = cov?.layers ?? []
+    if (!layers.length) { $('coverage').innerHTML = '<h2>Branch coverage</h2><p class="empty">No coverage configured.</p>'; return }
+    const sum = (k) => layers.filter((l) => l.available).reduce((a, l) => ({ covered: a.covered + l[k].covered, total: a.total + l[k].total }), { covered: 0, total: 0 })
+    const cellFor = (c) => {
+      if (!c.total) return '<span class="empty">no branches</span>'
+      const p = Math.round((100 * c.covered) / c.total)
+      return `<span class="bar"><i style="width:${p}%"></i></span>${c.covered}/${c.total} (${p}%)`
+    }
+    const base = cov.base ? esc(cov.base) : '—'
+    const rows = layers.map((l) => l.available
+      ? `<tr><td>${esc(l.layer)}</td><td>${cellFor(l.global)}</td><td>${cellFor(l.new)}</td></tr>`
+      : `<tr><td>${esc(l.layer)}</td><td colspan="2" class="empty">No data: run the tests with coverage</td></tr>`)
+    rows.push(`<tr><td><b>Total</b></td><td>${cellFor(sum('global'))}</td><td>${cellFor(sum('new'))}</td></tr>`)
+    const uncovered = layers.flatMap((l) => l.uncovered ?? [])
+    const byFile = {}
+    for (const u of uncovered) (byFile[u.file] ??= []).push(u.line)
+    const items = Object.entries(byFile).map(([f, ls]) => `<li><code>${esc(f)}</code>: lines ${[...new Set(ls)].join(', ')}</li>`).join('')
+    $('coverage').innerHTML = `
+      <h2>Branch coverage</h2>
+      <div class="table"><table>
+        <thead><tr><th>Layer</th><th>Global</th><th>New code vs ${base}</th></tr></thead>
+        <tbody>${rows.join('')}</tbody>
+      </table></div>
+      ${cov.baseWarning ? `<p class="note">${esc(cov.baseWarning)}</p>` : ''}
+      ${uncovered.length
+        ? `<details><summary>${uncovered.length} new branches not covered, to classify when closing the story</summary><ul class="list">${items}</ul></details>`
+        : '<p class="note">No new branch left uncovered.</p>'}
+      <p class="note">Informative: it never blocks. With c8 (V8 coverage) every block V8 measures counts as a branch, including the continuation of an await, not only ifs.</p>`
+  }
+
+  const source = new EventSource('/events')
+  source.onmessage = (ev) => paint(JSON.parse(ev.data))
+  source.onerror = () => {
+    $('connection').className = 'connection down'
+    $('connection').textContent = 'No connection to the matrix server. Retrying…'
+  }
+</script>
+</body>
+</html>
