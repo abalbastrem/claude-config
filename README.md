@@ -36,7 +36,7 @@ Els sons són a `hooks/sounds/` i vénen de Freesound. Per canviar-los, posa-hi 
 `tools/matrix/` és una eina general que creua, per a qualsevol projecte amb OpenSpec:
 
 - **els escenaris:** la spec viva i els changes en curs, cadascun amb un ID `[SC-n]` únic a tot el repo;
-- **els resultats dels tests:** Japa i Vitest. El títol de cada test comença per l'ID del seu escenari;
+- **els resultats dels tests:** Japa, Vitest i Playwright. El títol de cada test comença per l'ID del seu escenari;
 - **la cobertura de branques:** global i del codi nou respecte d'una branca base.
 
 Ho fa amb tres fitxers:

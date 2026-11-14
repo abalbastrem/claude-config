@@ -9,7 +9,7 @@ argument-hint: setup | status
 A general tool that lives in the claude-config repo, `tools/matrix/`. It crosses:
 
 - **OpenSpec scenarios**: the living spec in `openspec/specs/`, plus the delta specs of changes in progress;
-- **test results**: Japa (ndjson reporter) and Vitest (json reporter);
+- **test results**: Japa (ndjson reporter), Vitest (json reporter) and Playwright (json reporter);
 - **branch coverage**: istanbul `coverage-final.json`, from c8 or `@vitest/coverage-v8`. Coverage is shown globally and for the new code against a base branch.
 
 It produces:
@@ -82,8 +82,9 @@ Prepare a project that already uses OpenSpec. Stop and ask at each step that nee
    `root` is the folder Japa runs from, so that file paths are relative to the project. Add `<dir>/state.json` to `.gitignore`.
 3. **Results.**
    - **Japa:** `node ace test --reporters=spec --reporters=ndjson | tee <file> | grep -v '^{'`. The spec output stays readable, and the JSON lines go only to the file. Run it under `bash` with `set -o pipefail`, or the pipeline hides Japa's exit code (`dash`, the default `sh` on Ubuntu CI, has no `pipefail`).
-   - **Levels.** Japa takes the level from the suite: `unit` → unit, `e2e` → e2e, any other suite → public interface. Map other suite names with `"levels": { "<suite>": "<level>" }` in that results entry. Vitest is component unless the entry sets `"level"`.
+   - **Levels.** Japa takes the level from the suite: `unit` → unit, `e2e` → e2e, any other suite → public interface. Map other suite names with `"levels": { "<suite>": "<level>" }` in that results entry. Vitest is component and Playwright is e2e, unless the entry sets `"level"`.
    - **Vitest:** `vitest run --reporter=default --reporter=json --outputFile.json=<file>`.
+   - **Playwright:** `reporter: [['list'], ['json', { outputFile: 'tmp/e2e-results.json' }]]` in `frontend/playwright.config.ts`. Playwright resolves `outputFile` from the config's folder, while the entry is relative to the project root: `{ "runner": "playwright", "file": "frontend/tmp/e2e-results.json" }`. A spec that runs in several projects (browsers) counts as one test with the worst state of its runs; `flaky` (passed on a retry) counts as pass. Projects that are not tests of a scenario, such as an auth setup, go in `"ignoreProjects": ["setup"]`.
    - **Stamp first.** The test target starts with `matrix.ts --dir <dir> --stamp`, which records a fingerprint of the specs. With it, `--check` knows when results were produced against other specs, or when a runner was not rerun. Add `<dir>/specs-stamp.json` to `.gitignore` too.
 4. **Branch coverage.**
    - **Backend (Japa):** add `c8` as a pinned dev dependency, plus a `.c8rc.json` with:
