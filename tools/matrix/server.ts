@@ -9,9 +9,9 @@
 
 import { createServer, type ServerResponse } from 'node:http'
 import { existsSync, readFileSync, realpathSync, unwatchFile, watch, watchFile, type FSWatcher } from 'node:fs'
-import { dirname, join, resolve } from 'node:path'
+import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { generate, pathsFrom, type Paths } from './matrix.ts'
+import { generate, isMain, pathsFrom, type Paths } from './matrix.ts'
 
 const VIEW = join(dirname(fileURLToPath(import.meta.url)), 'view.html')
 
@@ -95,7 +95,7 @@ export async function start({ root: requestedRoot, dir, port }: Paths & { port: 
   }
 }
 
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (isMain(import.meta.url)) {
   const argv = process.argv.slice(2)
   const port = Number(argv.includes('--port') ? argv[argv.indexOf('--port') + 1] : 5180)
   const s = await start({ ...pathsFrom(argv), port })

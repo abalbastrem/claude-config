@@ -12,7 +12,7 @@
 // Why and how: the "Traceability matrix" section of the claude-config README.
 
 import { execFileSync } from 'node:child_process'
-import { existsSync, readFileSync, readdirSync, writeFileSync, mkdirSync } from 'node:fs'
+import { existsSync, lstatSync, readFileSync, readdirSync, realpathSync, writeFileSync, mkdirSync } from 'node:fs'
 import { join, relative, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -62,7 +62,10 @@ export type Paths = { root: string; dir: string }
 
 // One ID per scenario, unique across the repo: SC-1, SC-2… Capability and requirement are
 // columns of their own in the matrix, so the ID does not repeat them.
-const ID_IN_TITLE = /\bSC-\d+\b/g
+// A test's IDs are the ones its title starts with: "SC-7 · …" or "SC-7 SC-8 · …". An ID anywhere
+// else in the title, or glued to other characters (SC-1.5, x-SC-3), does not count.
+const LEADING_IDS = /^\s*(SC-\d+(?:[\s,]+SC-\d+)*)(?=\s|·|:|$)/
+const idsOf = (title: string): string[] => [...new Set(title.match(LEADING_IDS)?.[1].match(/SC-\d+/g) ?? [])]
 
 const toPosix = (p: string) => p.split(sep).join('/').replace(/\\/g, '/')
 const file = (p: Paths, name: string) => join(p.root, p.dir, name)
@@ -73,7 +76,7 @@ function specsIn(dir: string): { capability: string; path: string }[] {
   if (!existsSync(dir)) return []
   const out: { capability: string; path: string }[] = []
   const visit = (current: string) => {
-    for (const e of readdirSync(current, { withFileTypes: true })) {
+    for (const e of readdirSync(current, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
       const path = join(current, e.name)
       if (e.isDirectory()) visit(path)
       else if (e.name === 'spec.md') out.push({ capability: toPosix(relative(dir, current)), path })
@@ -84,16 +87,41 @@ function specsIn(dir: string): { capability: string; path: string }[] {
 }
 
 type Block = { section: string; requirement: string; scenarios: { id: string | null; name: string }[] }
+type Spec = { blocks: Block[]; renames: { from: string; to: string }[] }
 
-function readSpec(path: string): Block[] {
+// Same delta format OpenSpec parses: requirement blocks under ADDED/MODIFIED/REMOVED, and
+// `FROM:`/`TO:` pairs under RENAMED. Lines inside code fences are ignored, as OpenSpec does.
+function readSpec(path: string): Spec {
   const blocks: Block[] = []
+  const renames: { from: string; to: string }[] = []
   let section = 'MAIN'
   let current: Block | null = null
+  let fence: string | null = null
+  let pendingFrom: string | null = null
   for (const line of readFileSync(path, 'utf8').split(/\r?\n/)) {
-    const delta = line.match(/^## (ADDED|MODIFIED|REMOVED|RENAMED) Requirements/)
-    if (delta) {
-      section = delta[1]
+    const fenceMark = line.match(/^\s*(`{3,}|~{3,})/)
+    if (fenceMark) {
+      if (!fence) fence = fenceMark[1][0]
+      else if (fenceMark[1][0] === fence) fence = null
+      continue
+    }
+    if (fence) continue
+    const header = line.match(/^## (.+?)\s*$/)
+    if (header) {
+      const delta = header[1].match(/^(ADDED|MODIFIED|REMOVED|RENAMED) Requirements$/)
+      section = delta ? delta[1] : 'MAIN'
       current = null
+      pendingFrom = null
+      continue
+    }
+    if (section === 'RENAMED') {
+      const from = line.match(/^\s*[-*+]?\s*FROM:\s*`?###\s*Requirement:\s*(.+?)`?\s*$/)
+      const to = line.match(/^\s*[-*+]?\s*TO:\s*`?###\s*Requirement:\s*(.+?)`?\s*$/)
+      if (from) pendingFrom = from[1].trim()
+      else if (to && pendingFrom) {
+        renames.push({ from: pendingFrom, to: to[1].trim() })
+        pendingFrom = null
+      }
       continue
     }
     const req = line.match(/^### Requirement:\s*(.+?)\s*$/)
@@ -108,7 +136,7 @@ function readSpec(path: string): Block[] {
       current.scenarios.push(withId ? { id: withId[1], name: withId[2] } : { id: null, name: sc[1] })
     }
   }
-  return blocks
+  return { blocks, renames }
 }
 
 function readScenarios(root: string, errors: string[]): SpecScenario[] {
@@ -126,7 +154,7 @@ function readScenarios(root: string, errors: string[]): SpecScenario[] {
 
   for (const { capability, path } of specsIn(join(root, 'openspec/specs'))) {
     const where = toPosix(relative(root, path))
-    for (const b of readSpec(path)) {
+    for (const b of readSpec(path).blocks) {
       const list: SpecScenario[] = []
       for (const s of b.scenarios) {
         if (!valid(s.id, s.name, where)) continue
@@ -146,18 +174,29 @@ function readScenarios(root: string, errors: string[]): SpecScenario[] {
     const origin = `change: ${change}`
     for (const { capability, path } of specsIn(join(changesDir, change, 'specs'))) {
       const where = toPosix(relative(root, path))
-      for (const b of readSpec(path)) {
+      const spec = readSpec(path)
+      // Same order OpenSpec applies a delta in: RENAMED → REMOVED → MODIFIED → ADDED.
+      for (const { from, to } of spec.renames) {
+        const moved = byRequirement.get(key(capability, from))
+        if (!moved) continue
+        byRequirement.delete(key(capability, from))
+        byRequirement.set(key(capability, to), moved.map((s) => ({ ...s, requirement: to, origin })))
+      }
+      const ordered = ['REMOVED', 'MODIFIED', 'ADDED'].flatMap((section) => spec.blocks.filter((b) => b.section === section))
+      for (const b of ordered) {
         const k = key(capability, b.requirement)
         if (b.section === 'REMOVED') {
+          for (const s of byRequirement.get(k) ?? []) seen.delete(s.id)
           byRequirement.delete(k)
           continue
         }
-        if (b.section !== 'ADDED' && b.section !== 'MODIFIED') continue
         const previous = new Set((byRequirement.get(k) ?? []).map((s) => s.id))
+        // MODIFIED replaces the whole block: the IDs it drops are free of its old scenarios.
+        if (b.section === 'MODIFIED') for (const id of previous) seen.delete(id)
         const list: SpecScenario[] = []
         for (const s of b.scenarios) {
           if (!valid(s.id, s.name, where)) continue
-          if (seen.has(s.id) && !(b.section === 'MODIFIED' && previous.has(s.id))) {
+          if (seen.has(s.id)) {
             errors.push(`Duplicate ID: ${s.id} (${where}).`)
           }
           seen.add(s.id)
@@ -250,14 +289,42 @@ function markdown(scenarios: Scenario[], orphans: Test[]): string {
 const git = (root: string, ...args: string[]) =>
   execFileSync('git', ['-C', root, ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], maxBuffer: 64 * 1024 * 1024 })
 
-// Added or modified lines per file, since the point where the branch leaves the base.
+// Path of a `+++ ` line: git appends a TAB to names with spaces, and C-quotes names with
+// special characters ("b/a\"b.ts"). With core.quotepath=false non-ASCII names come as is.
+function diffPath(raw: string): string {
+  let p = raw.replace(/\t$/, '')
+  if (p.startsWith('"') && p.endsWith('"')) {
+    const bytes: number[] = []
+    const body = p.slice(1, -1)
+    for (let i = 0; i < body.length; i++) {
+      const c = body[i]
+      if (c !== '\\') {
+        bytes.push(...Buffer.from(c, 'utf8'))
+        continue
+      }
+      const n = body[++i]
+      if (/[0-7]/.test(n)) {
+        bytes.push(parseInt(body.slice(i, i + 3), 8))
+        i += 2
+      } else bytes.push(({ n: 10, t: 9, r: 13, '"': 34, '\\': 92 } as Record<string, number>)[n] ?? n.charCodeAt(0))
+    }
+    p = Buffer.from(bytes).toString('utf8')
+  }
+  return p.replace(/^b\//, '')
+}
+
+const MAX_UNTRACKED_BYTES = 1024 * 1024
+
+// Added or modified lines per file, relative to `root` (which may be a subfolder of the git
+// repo), since the point where the branch leaves the base.
 function changedLines(root: string, base: string): Map<string, Set<number>> {
   const since = git(root, 'merge-base', 'HEAD', base).trim()
   const changes = new Map<string, Set<number>>()
   let current = ''
-  for (const line of git(root, 'diff', '--unified=0', '--no-color', '--no-renames', since, '--').split('\n')) {
+  const diff = git(root, '-c', 'core.quotepath=false', 'diff', '--relative', '--unified=0', '--no-color', '--no-renames', '--no-ext-diff', since, '--')
+  for (const line of diff.split('\n')) {
     if (line.startsWith('+++ ')) {
-      current = line === '+++ /dev/null' ? '' : line.slice(6)
+      current = line === '+++ /dev/null' ? '' : diffPath(line.slice(4))
       continue
     }
     const hunk = line.match(/^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@/)
@@ -268,10 +335,20 @@ function changedLines(root: string, base: string): Map<string, Set<number>> {
     for (let i = start; i < start + n; i++) set.add(i)
     changes.set(current, set)
   }
-  // New, still untracked files count in full.
-  for (const untracked of git(root, 'ls-files', '--others', '--exclude-standard').split('\n').filter(Boolean)) {
-    const lines = readFileSync(join(root, untracked), 'utf8').split('\n').length
-    changes.set(untracked, new Set(Array.from({ length: lines }, (_, i) => i + 1)))
+  // New, still untracked files count in full. -z: no quoting at all. Each file on its own, so
+  // one that cannot be read (a link, a binary, something huge) does not sink the rest.
+  for (const untracked of git(root, 'ls-files', '-z', '--others', '--exclude-standard').split('\0').filter(Boolean)) {
+    try {
+      const path = join(root, untracked)
+      const info = lstatSync(path)
+      if (!info.isFile() || info.size > MAX_UNTRACKED_BYTES) continue
+      const content = readFileSync(path)
+      if (content.includes(0)) continue
+      const lines = content.toString('utf8').split('\n').length
+      changes.set(toPosix(untracked), new Set(Array.from({ length: lines }, (_, i) => i + 1)))
+    } catch {
+      // Unreadable: it simply does not count as new code.
+    }
   }
   return changes
 }
@@ -349,7 +426,7 @@ export function generate(p: Paths, options: { base?: string } = {}): Result {
   const byId = new Map<string, Test[]>()
   const orphans: Test[] = []
   for (const t of tests) {
-    const own = [...new Set(t.title.match(ID_IN_TITLE) ?? [])]
+    const own = idsOf(t.title)
     if (!own.length || own.some((id) => !ids.has(id))) orphans.push(t)
     for (const id of own.filter((id) => ids.has(id))) byId.set(id, [...(byId.get(id) ?? []), t])
   }
@@ -363,7 +440,9 @@ export function generate(p: Paths, options: { base?: string } = {}): Result {
         : own.some((t) => t.state === 'pass')
           ? 'pass'
           : 'skipped'
-    return { ...s, state, tests: own }
+    // Stable order, whatever order the runners reported in, so matrix.md does not churn.
+    const tests = [...own].sort((a, b) => a.file.localeCompare(b.file) || a.title.localeCompare(b.title))
+    return { ...s, state, tests }
   })
 
   return {
@@ -385,7 +464,9 @@ export function problems(p: Paths, r: Result): string[] {
   for (const t of r.orphans) out.push(`Test without a scenario: "${t.title}" (${t.file})`)
   for (const m of r.missingResults) out.push(`Missing results from ${m}: run the tests first`)
   const md = file(p, 'matrix.md')
-  if (!existsSync(md) || readFileSync(md, 'utf8') !== r.markdown) {
+  // Line endings do not count: a CRLF checkout (core.autocrlf) is not out of date.
+  const sameText = (a: string, b: string) => a.replace(/\r\n/g, '\n') === b.replace(/\r\n/g, '\n')
+  if (!existsSync(md) || !sameText(readFileSync(md, 'utf8'), r.markdown)) {
     out.push(`${toPosix(join(p.dir, 'matrix.md'))} is out of date: regenerate the matrix and commit it`)
   }
   return out
@@ -435,6 +516,21 @@ function main(argv: string[]): number {
   return 0
 }
 
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+// True when this module is the script being run. Compares real paths (a CLAUDE_CONFIG behind a
+// symlink, 8.3 short names) and, on Windows, ignores case, so the CLI never silently does nothing.
+export function isMain(moduleUrl: string): boolean {
+  if (!process.argv[1]) return false
+  const real = (p: string) => {
+    try {
+      return realpathSync.native(p)
+    } catch {
+      return resolve(p)
+    }
+  }
+  const norm = (p: string) => (process.platform === 'win32' ? real(p).toLowerCase() : real(p))
+  return norm(process.argv[1]) === norm(fileURLToPath(moduleUrl))
+}
+
+if (isMain(import.meta.url)) {
   process.exitCode = main(process.argv.slice(2))
 }
