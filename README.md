@@ -53,11 +53,38 @@ node $CLAUDE_CONFIG/tools/matrix/matrix.ts --dir docs/traceability [--check] [--
 node $CLAUDE_CONFIG/tools/matrix/server.ts --dir docs/traceability [--port 5180]
 ```
 
-Per preparar-hi un projecte, la skill `skills/matrix/` (`/matrix setup`) crea la configuració, els targets de `make`, el hook pre-push (typecheck si el projecte en té, tests i `--check`, en aquest ordre) i la cobertura, i numera els escenaris. L'assignació de tests a escenaris te la proposa, però la decideixes tu. Com les altres skills, cal copiar-la a `~/.claude/skills/matrix/`.
+Per preparar-hi un projecte, la skill `skills/matrix/` (`/matrix setup`) crea la configuració, els targets de `make`, el hook pre-push (typecheck si el projecte en té, tests i `--check`, en aquest ordre; s'activa sol amb `npm install`) i la cobertura, i numera els escenaris. L'assignació de tests a escenaris te la proposa, però la decideixes tu. Com les altres skills, cal copiar-la a `~/.claude/skills/matrix/`.
 
 L'eina no té tests propis expressament: només mostra els del projecte. Necessita Node 24 o posterior, que executa el TypeScript directament.
 
 Com que tots els projectes l'executen des d'aquesta carpeta, l'eina avisa quan la carpeta no és a la seva branca per defecte o té canvis sense commit en qualsevol fitxer: en aquest cas, el `--check` de tots els projectes depèn d'aquesta branca.
+
+### La matriu al CI
+
+El hook pre-push és la porta local. `.github/workflows/matrix-check.yml` és la xarxa per al que se'l salta (`--no-verify`, un clon sense hooks, una edició des de la web, una altra persona): un workflow reutilitzable que executa els tests del projecte i `--check`, i posa el PR en vermell si la matriu no està al 100%. No necessita secrets, així que també corre en PR de forks.
+
+```yaml
+name: Traceability matrix
+on:
+  pull_request:
+jobs:
+  matrix:
+    uses: abalbastrem/claude-config/.github/workflows/matrix-check.yml@main
+    with:
+      matrix-dir: docs/traceability
+      setup: |
+        cd backend && npm ci && cp .env.example .env && node ace generate:key && node ace migration:run --force
+        cd ../frontend && npm ci && npx playwright install --with-deps chromium
+```
+
+Va a `.github/workflows/matrix.yml` del projecte.
+
+- **`setup`** instal·la i prepara el que necessiten els tests. Si el projecte no necessita res, `setup: 'true'`.
+- **`test-command`** (per defecte, `make test`) executa tots els runners, primer amb `matrix.ts --stamp`, i deixa els resultats on diu `config.json`. El workflow passa `CLAUDE_CONFIG` amb la ruta de l'eina.
+- **Seguretat:** ni `setup` ni `test-command` han de rebre valors de `github.event.*`, i el disparador ha de ser `pull_request`, mai `pull_request_target`, perquè executa el codi del PR.
+- **Versió:** `@main` només existeix després del merge. L'eina sempre ve de `main`, encara que el workflow es fixi a una altra versió.
+- **Bloquejar:** el check en vermell només impedeix el merge si està marcat com a obligatori a la protecció de la branca.
+- **Cobertura:** no la mesura, perquè `--check` no la fa servir mai.
 
 ## Agents
 
