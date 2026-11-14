@@ -31,6 +31,31 @@ Els sons són a `hooks/sounds/` i vénen de Freesound. Per canviar-los, posa-hi 
 - Pregunta o permís: [alienbeacon1](https://freesound.org/s/455470/), de zimbot, a Freesound.
 - Final del torn: [sci-fi computing tr1](https://freesound.org/s/786190/), de danymo, a Freesound. Convertit d'MP3 a WAV.
 
+## Matriu de traçabilitat
+
+`tools/matrix/` és una eina general que creua, per a qualsevol projecte amb OpenSpec:
+
+- **els escenaris:** la spec viva i els changes en curs, cadascun amb un ID `[SC-n]` únic a tot el repo;
+- **els resultats dels tests:** Japa i Vitest. El títol de cada test comença per l'ID del seu escenari;
+- **la cobertura de branques:** global i del codi nou respecte d'una branca base.
+
+Ho fa amb tres fitxers:
+
+- `matrix.ts` genera `matrix.md`, que es versiona i no porta l'estat dels tests, i `state.json`, que no es versiona. Amb `--check` falla si hi ha tests sense escenari, escenaris sense test, en vermell o només omesos, o si `matrix.md` està desfasat. La cobertura és informativa i no bloqueja mai.
+- `server.ts` serveix `view.html` (per defecte a `http://localhost:5180`) i la repinta per SSE cada vegada que canvien les specs, els resultats o la cobertura, sense recarregar.
+- La configuració de cada projecte viu al mateix projecte, a `<dir>/config.json`: els runners, on deixen els resultats, la branca base i els informes de cobertura.
+
+Els projectes criden l'eina des d'aquesta carpeta, no en tenen una còpia:
+
+```
+node $CLAUDE_CONFIG/tools/matrix/matrix.ts --dir docs/traceability [--check] [--base <ref>]
+node $CLAUDE_CONFIG/tools/matrix/server.ts --dir docs/traceability [--port 5180]
+```
+
+Per preparar-hi un projecte, la skill `skills/matrix/` (`/matrix setup`) crea la configuració, els targets de `make`, el hook pre-push i la cobertura, i numera els escenaris. L'assignació de tests a escenaris te la proposa, però la decideixes tu. Com les altres skills, cal copiar-la a `~/.claude/skills/matrix/`.
+
+L'eina no té tests propis expressament: només mostra els del projecte. Necessita Node 24 o posterior, que executa el TypeScript directament.
+
 ## Agents
 
 - `agents/adversarial-reviewer.md`: revisa un PR per trencar-lo, no per aprovar-lo. A més de bugs i seguretat, comprova les regles de tests del `CLAUDE.md`: que cada test pengi d'un criteri, el nivell de cada test, l'E2E i la classificació de la cobertura. Claude Code només llegeix agents d'usuari de `~/.claude/agents/`, així que cal copiar-hi el fitxer. Si un projecte té un agent amb el mateix nom a `.claude/agents/`, mana el del projecte.

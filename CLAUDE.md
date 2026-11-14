@@ -36,14 +36,15 @@ TDD diu quan escriure el test, no a quin nivell. Cada criteri es prova per defec
 
 Tot test penja d'un escenari de la Story, o d'una decisió tècnica que jo hagi acceptat. Un test sobre una branca que ningú no ha decidit converteix una casualitat en contracte.
 
-- **Traça:** el títol del test porta l'identificador del criteri que prova (per exemple, `CA-9`). Un test unitari d'una decisió tècnica enllaça on la vaig acceptar.
+- **Traça:** el títol del test comença per l'identificador de l'escenari que prova (`SC-7 · …`, o `SC-7 SC-8 · …` si en prova més d'un). A OpenSpec, cada escenari porta l'ID al títol, `#### Scenario: [SC-n] …`, únic a tot el repo; un escenari nou agafa el següent número lliure i cap número no es reutilitza. Un test unitari d'una decisió tècnica enllaça on la vaig acceptar.
+- **Matriu de traçabilitat:** si el projecte en té, l'eina de `tools/matrix/` d'aquest repo creua escenaris, tests i cobertura (vegeu el README i la skill `/matrix`). Es recorre de capability a requisit, a escenari i a test, mai al revés.
 - **Una decisió tècnica és acceptada** quan hi ha un comentari meu al PR o queda escrita al disseny de la Story (a OpenSpec, el `design.md`) i jo l'he revisat. Que l'agent l'escrigui a la descripció del PR no compta.
 - **Un test de regressió** penja del criteri que el bug incomplia. Si no n'hi ha cap, és un criteri que falta.
 - Si mentre escrius els tests apareix una branca o un cas que cap criteri no recull, **atura't i porta-me'l**. No inventis l'escenari ni escriguis el test pel teu compte: decidir-ho és decisió de producte. Fins que respongui, aquella Subtask queda bloquejada; si n'hi ha d'altres que no en depenen, pots continuar amb aquestes.
 
 ### Tancament de la Story
 
-L'última Subtask de cada Story (a OpenSpec, l'últim grup de `tasks.md`, encara que no sigui un requisit) és el tancament: l'E2E, si n'hi ha, i l'auditoria de cobertura.
+L'última Subtask de cada Story (a OpenSpec, l'últim grup de `tasks.md`, encara que no sigui un requisit) és el tancament: l'E2E, si n'hi ha, i l'auditoria de cobertura. Si el projecte té matriu de traçabilitat, el seu `--check` ha d'estar en verd (cap test sense escenari, cap escenari sense test, en vermell o omès), i les branques noves no cobertes que llista la matriu són les que es classifiquen.
 
 La mètrica és la **cobertura de branques del codi nou de la Story** (el diff del PR contra la branca base), no la global. És un detector, no un objectiu: no hi ha llindar que bloquegi el PR.
 

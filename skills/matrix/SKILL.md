@@ -1,0 +1,116 @@
+---
+name: matrix
+description: Set up or use the traceability matrix that crosses OpenSpec scenarios with tests and branch coverage. Use when the user runs /matrix, or asks to set up, regenerate, check or open the traceability matrix in a project.
+argument-hint: setup | status
+---
+
+# Traceability matrix
+
+A general tool that lives in the claude-config repo, `tools/matrix/`. It crosses:
+
+- **OpenSpec scenarios**: the living spec in `openspec/specs/`, plus the delta specs of changes in progress;
+- **test results**: Japa (ndjson reporter) and Vitest (json reporter);
+- **branch coverage**: istanbul `coverage-final.json`, from c8 or `@vitest/coverage-v8`. Coverage is shown globally and for the new code against a base branch.
+
+It produces:
+
+- `matrix.md`: which tests verify each scenario, with no test state. It is versioned.
+- `state.json`: the same plus test state and coverage. It is git-ignored.
+- **A live page**: the tool's own `view.html`, served by `server.ts`. It repaints itself over SSE every time the tests run.
+
+The tool reads `<dir>/config.json` in the project, and is always called through the claude-config folder, never copied:
+
+```
+node $CLAUDE_CONFIG/tools/matrix/matrix.ts --dir <dir> [--check] [--base <ref>]
+node $CLAUDE_CONFIG/tools/matrix/server.ts --dir <dir> [--port 5180]
+```
+
+`CLAUDE_CONFIG` defaults to `~/projects/software/claude-config`.
+
+## The rules it enforces
+
+They come from the global CLAUDE.md, section Tests.
+
+- Every OpenSpec scenario carries an ID in its title: `#### Scenario: [SC-n] …`. The ID is unique across the repo, and a new scenario takes the next free number. Numbers are never reused.
+- Every test title starts with the ID(s) of the scenario(s) it verifies: `SC-7 · …` or `SC-7 SC-8 · …`.
+- `--check` fails, and so does the pre-push hook, when any of these happen:
+  - a test without a scenario;
+  - a scenario without tests, with failing tests, or with only skipped tests;
+  - missing results;
+  - `matrix.md` out of date.
+- Coverage never blocks.
+
+## Arguments
+
+Read `$ARGUMENTS`. If it is empty, treat it as `status`.
+
+### `status`
+
+Run the tests if there are no results yet. Then run `matrix.ts --dir <dir>` and report:
+
+- the counts per state;
+- the scenarios that are not green;
+- the orphan tests;
+- the branch coverage, global and new.
+
+Offer the live view.
+
+### `setup`
+
+Prepare a project that already uses OpenSpec. Stop and ask at each step that needs a decision; do not make the decisions yourself.
+
+1. **Folder.** Ask where the matrix lives. The default is `docs/traceability`; a Spanish project may prefer `docs/trazabilidad`.
+2. **`config.json`.** Ask which runners the project has and where each one should write its results. Then write:
+
+   ```json
+   {
+     "results": [
+       { "runner": "japa", "file": "backend/tmp/test-results.ndjson", "root": "backend" },
+       { "runner": "vitest", "file": "frontend/tmp/test-results.json" }
+     ],
+     "baseBranch": "main",
+     "coverage": [
+       { "layer": "backend", "file": "backend/coverage/coverage-final.json" },
+       { "layer": "frontend", "file": "frontend/coverage/coverage-final.json" }
+     ]
+   }
+   ```
+
+   `root` is the folder Japa runs from, so that file paths are relative to the project. Add `<dir>/state.json` to `.gitignore`.
+3. **Results.**
+   - **Japa:** `node ace test --reporters=spec --reporters=ndjson | tee <file> | grep -v '^{'`. The spec output stays readable, and the JSON lines go only to the file.
+   - **Vitest:** `vitest run --reporter=default --reporter=json --outputFile.json=<file>`.
+4. **Branch coverage.**
+   - **Backend (Japa):** add `c8` as a pinned dev dependency, plus a `.c8rc.json` with:
+     - `all: true`;
+     - `include` for the app code;
+     - `exclude` for generated code and tests;
+     - the `json` and `json-summary` reporters to `coverage/`.
+
+     Then prefix the test command with `npx c8`.
+   - **Frontend (Vitest):** add `@vitest/coverage-v8` at the same version as `vitest`. In `test.coverage` set:
+     - `provider: 'v8'`;
+     - `include` for the source;
+     - `exclude` for generated components and tests;
+     - the `json` and `json-summary` reporters.
+
+     Then add `--coverage` to the run.
+   - **Generated code always stays out**, for example shadcn components, generated schemas and registries.
+5. **Make targets.** Add `CLAUDE_CONFIG ?= $(HOME)/projects/software/claude-config` and the four targets. Use the project's language for their names.
+   - `test`: runs every runner, even if one fails, and exits with an error if any failed.
+   - `matrix`: runs `matrix.ts`.
+   - `matrix-check`: runs `matrix.ts --check`.
+   - `matrix-live`: runs `server.ts`.
+6. **Pre-push hook.** Create `.githooks/pre-push` (executable: `git update-index --chmod=+x`) that runs `make test` and the check target. Activate it with `git config core.hooksPath .githooks`, ideally from the project's setup target.
+7. **Scenario IDs.** Number the scenarios that have no `[SC-n]`, in order of appearance, continuing from the highest existing number. Check that `openspec validate --specs --strict` still passes.
+8. **Test IDs: stop and ask.** Propose a table with each test, the scenario(s) you think it verifies, and the doubtful ones marked. Tests that fit no scenario are listed apart.
+   - Do not invent scenarios and do not decide a mapping on your own: that is the user's call.
+   - Apply only the mapping the user approves.
+   - The user decides what happens to tests without a scenario. Usually the direction is capability → requirement → scenario → test, so such tests are removed, not given a scenario after the fact.
+9. **Verify.** Run the tests, generate the matrix and show the result. Start the live view only if the user wants it.
+
+## Notes
+
+- The tool has no tests of its own on purpose: it only displays the project's tests.
+- The tool and the hooks run from the claude-config folder as it stands. Keep that folder on `main` when you are not working on it.
+- With c8 (V8 coverage), every block V8 measures counts as a branch, including the continuation of an `await`. Do not compare that figure directly with istanbul-instrumented layers.
