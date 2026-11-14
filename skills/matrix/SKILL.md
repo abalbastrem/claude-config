@@ -33,6 +33,7 @@ They come from the global CLAUDE.md, section Tests.
 
 - Every OpenSpec scenario carries an ID in its title: `#### Scenario: [SC-n] …`. The ID is unique across the repo, and a new scenario takes the next free number. Numbers are never reused.
 - Every test title starts with the ID(s) of the scenario(s) it verifies: `SC-7 · …` or `SC-7 SC-8 · …`. The ID goes on the test itself, not on its `describe` or group: an ID anywhere else does not count, and `--check` points it out.
+- The pre-push hook also fails when the typecheck fails (see setup, step 6).
 - `--check` exits 1, and so does the pre-push hook, when any of these happen:
   - a test without a scenario;
   - a scenario without tests, with failing tests, or with only skipped tests;
@@ -100,12 +101,13 @@ Prepare a project that already uses OpenSpec. Stop and ask at each step that nee
 
      Then add `--coverage` to the run.
    - **Generated code always stays out**, for example shadcn components, generated schemas and registries.
-5. **Make targets.** Add `CLAUDE_CONFIG ?= $(HOME)/projects/software/claude-config` and the four targets. Use the project's language for their names. Quote the tool path in recipes (`node "$(CLAUDE_CONFIG)/tools/matrix/matrix.ts"`): on Windows `$(HOME)` comes with backslashes, which bash eats inside multi-line recipes.
+5. **Make targets.** Add `CLAUDE_CONFIG ?= $(HOME)/projects/software/claude-config` and the four targets, plus a fifth when it applies. Use the project's language for their names. Quote the tool path in recipes (`node "$(CLAUDE_CONFIG)/tools/matrix/matrix.ts"`): on Windows `$(HOME)` comes with backslashes, which bash eats inside multi-line recipes.
    - `test`: runs every runner, even if one fails, and exits with an error if any failed.
    - `matrix`: runs `matrix.ts`.
    - `matrix-check`: runs `matrix.ts --check`.
    - `matrix-live`: runs `server.ts`.
-6. **Pre-push hook.** Create `.githooks/pre-push` (executable: `git update-index --chmod=+x`) that runs `make test` and the check target. Activate it with `git config core.hooksPath .githooks`, ideally from the project's setup target. Start the hook by checking that `$CLAUDE_CONFIG/tools/matrix/matrix.ts` exists, and fail with a clear message saying where to get claude-config if it does not: a clone without it should not die on a cryptic Node error.
+   - `typecheck`: only if the project uses a language or tool with type checking (TypeScript, mypy…). It calls the command each package already uses (`tsc --noEmit`, `tsc -b`, `mypy`…), even when that command only lives inside another script such as `build`. Like `test`, it runs every package even if one fails, and exits with an error if any failed. If the project already has an equivalent target, reuse it. Without type checking (plain JS, or a compiled language whose build already checks types), skip it without asking.
+6. **Pre-push hook.** Create `.githooks/pre-push` (executable: `git update-index --chmod=+x`) that runs, in this order, the typecheck target from step 5 (if the project has one), `make test` and the check target. The typecheck goes first because it is the cheapest and test runners often transpile without checking types, so a type error can sit behind a green suite. The hook calls the make target, not a package's own script, so that every package is checked. Activate it with `git config core.hooksPath .githooks`, ideally from the project's setup target. Start the hook by checking that `$CLAUDE_CONFIG/tools/matrix/matrix.ts` exists, and fail with a clear message saying where to get claude-config if it does not: a clone without it should not die on a cryptic Node error.
 7. **Scenario IDs.** Number the scenarios that have no `[SC-n]`, in order of appearance, continuing from the highest existing number. Check that `openspec validate --specs --strict` still passes.
 8. **Test IDs: stop and ask.** Propose a table with each test, the scenario(s) you think it verifies, and the doubtful ones marked. Tests that fit no scenario are listed apart.
    - Do not invent scenarios and do not decide a mapping on your own: that is the user's call.
