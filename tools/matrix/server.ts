@@ -48,22 +48,28 @@ export async function start({ root: requestedRoot, dir, port }: Paths & { port: 
 
   const config = JSON.parse(readFileSync(join(resolve(root, dir), 'config.json'), 'utf8'))
 
-  // A watched folder may not exist yet (first run) or disappear (rm -rf tmp/): on Windows the
-  // watcher then errors out. Errors are caught and the folder is watched again when it is back.
-  // `relevant` filters the events: a results folder like tmp/ also holds the dev database.
+  // A watched folder may not exist yet (first run) or disappear (rm -rf tmp/). On Windows the
+  // watcher then errors out; on Linux inotify says nothing, so every retry also checks that the
+  // folder is still there. Either way the old watcher is dropped and the folder is watched again
+  // when it is back. `relevant` filters the events: a results folder like tmp/ also holds the
+  // dev database.
   const watchers = new Map<string, FSWatcher>()
   const retries: NodeJS.Timeout[] = []
+  const caseless = process.platform === 'win32'
+  const fold = (s: string) => (caseless ? s.toLowerCase() : s)
   const watchDir = (d: string, recursive: boolean, relevant: (name: string) => boolean) => {
+    const detach = () => {
+      watchers.get(d)?.close()
+      watchers.delete(d)
+    }
     const attach = () => {
+      if (watchers.has(d) && !existsSync(d)) detach()
       if (watchers.has(d) || !existsSync(d)) return
       try {
         const w = watch(d, { recursive }, (_event, name) => {
-          if (name && relevant(String(name).replace(/\\/g, '/'))) onChange()
+          if (name && relevant(fold(String(name).replace(/\\/g, '/')))) onChange()
         })
-        w.on('error', () => {
-          w.close()
-          watchers.delete(d)
-        })
+        w.on('error', detach)
         watchers.set(d, w)
         onChange()
       } catch {
@@ -73,11 +79,14 @@ export async function start({ root: requestedRoot, dir, port }: Paths & { port: 
     attach()
     retries.push(setInterval(attach, 2000))
   }
-  watchDir(join(root, 'openspec'), true, (name) => name.endsWith('.md'))
+  // Spec files, and also bare folder names: moving or archiving a whole change folder emits a
+  // single event with the folder's name and nothing for the .md files inside.
+  const lastSegment = (name: string) => name.split('/').pop() ?? name
+  watchDir(join(root, 'openspec'), true, (name) => name.endsWith('.md') || !lastSegment(name).includes('.'))
   const resultFiles = new Map<string, Set<string>>()
   for (const r of config.results as { file: string }[]) {
     const full = join(root, r.file)
-    resultFiles.set(dirname(full), (resultFiles.get(dirname(full)) ?? new Set()).add(basename(full)))
+    resultFiles.set(dirname(full), (resultFiles.get(dirname(full)) ?? new Set()).add(fold(basename(full))))
   }
   for (const [d, names] of resultFiles) watchDir(d, false, (name) => names.has(name))
   // Coverage folders are deleted and recreated on every run, and fs.watch does not survive

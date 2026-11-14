@@ -33,11 +33,13 @@ They come from the global CLAUDE.md, section Tests.
 
 - Every OpenSpec scenario carries an ID in its title: `#### Scenario: [SC-n] …`. The ID is unique across the repo, and a new scenario takes the next free number. Numbers are never reused.
 - Every test title starts with the ID(s) of the scenario(s) it verifies: `SC-7 · …` or `SC-7 SC-8 · …`. The ID goes on the test itself, not on its `describe` or group: an ID anywhere else does not count, and `--check` points it out.
-- `--check` fails, and so does the pre-push hook, when any of these happen:
+- `--check` exits 1, and so does the pre-push hook, when any of these happen:
   - a test without a scenario;
   - a scenario without tests, with failing tests, or with only skipped tests;
-  - missing results;
+  - missing results, or stale ones: the specs changed after the last test run, or a runner was not rerun in it (needs the stamp, see setup);
+  - no scenarios at all;
   - `matrix.md` out of date.
+- Errors in the specs (a scenario without ID, a duplicate ID, a requirement twice in one capability) exit 1 in any mode. A flag without a value exits 2.
 - Coverage never blocks.
 
 ## Arguments
@@ -81,6 +83,7 @@ Prepare a project that already uses OpenSpec. Stop and ask at each step that nee
    - **Japa:** `node ace test --reporters=spec --reporters=ndjson | tee <file> | grep -v '^{'`. The spec output stays readable, and the JSON lines go only to the file. Run it under `bash` with `set -o pipefail`, or the pipeline hides Japa's exit code (`dash`, the default `sh` on Ubuntu CI, has no `pipefail`).
    - **Levels.** Japa takes the level from the suite: `unit` → unit, `e2e` → e2e, any other suite → public interface. Map other suite names with `"levels": { "<suite>": "<level>" }` in that results entry. Vitest is component unless the entry sets `"level"`.
    - **Vitest:** `vitest run --reporter=default --reporter=json --outputFile.json=<file>`.
+   - **Stamp first.** The test target starts with `matrix.ts --dir <dir> --stamp`, which records a fingerprint of the specs. With it, `--check` knows when results were produced against other specs, or when a runner was not rerun. Add `<dir>/specs-stamp.json` to `.gitignore` too.
 4. **Branch coverage.**
    - **Backend (Japa):** add `c8` as a pinned dev dependency, plus a `.c8rc.json` with:
      - `all: true`;
@@ -97,7 +100,7 @@ Prepare a project that already uses OpenSpec. Stop and ask at each step that nee
 
      Then add `--coverage` to the run.
    - **Generated code always stays out**, for example shadcn components, generated schemas and registries.
-5. **Make targets.** Add `CLAUDE_CONFIG ?= $(HOME)/projects/software/claude-config` and the four targets. Use the project's language for their names.
+5. **Make targets.** Add `CLAUDE_CONFIG ?= $(HOME)/projects/software/claude-config` and the four targets. Use the project's language for their names. Quote the tool path in recipes (`node "$(CLAUDE_CONFIG)/tools/matrix/matrix.ts"`): on Windows `$(HOME)` comes with backslashes, which bash eats inside multi-line recipes.
    - `test`: runs every runner, even if one fails, and exits with an error if any failed.
    - `matrix`: runs `matrix.ts`.
    - `matrix-check`: runs `matrix.ts --check`.
@@ -113,8 +116,7 @@ Prepare a project that already uses OpenSpec. Stop and ask at each step that nee
 ## Notes
 
 - Needs Node 24 or later, which runs the TypeScript directly.
-- The tool warns when it runs from a claude-config checkout that is not a clean `main`, because that changes what every project's check does.
-
+- The tool warns when the claude-config checkout it runs from is not on its default branch or has uncommitted changes anywhere, because that changes what every project's check does.
 - The tool has no tests of its own on purpose: it only displays the project's tests.
 - The tool and the hooks run from the claude-config folder as it stands. Keep that folder on `main` when you are not working on it.
 - With c8 (V8 coverage), every block V8 measures counts as a branch, including the continuation of an `await`. Do not compare that figure directly with istanbul-instrumented layers.

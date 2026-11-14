@@ -1,17 +1,25 @@
 // Traceability matrix: crosses OpenSpec scenarios with test results and branch coverage.
 //
 //   node <claude-config>/tools/matrix/matrix.ts [--root <project>] [--dir <dir>] [--check] [--base <ref>]
+//   node <claude-config>/tools/matrix/matrix.ts [--root <project>] [--dir <dir>] --stamp
 //
-// --dir is the project folder that holds config.json, matrix.md and state.json
-// (default: docs/traceability, relative to --root, which defaults to the current folder).
+// --dir is the project folder that holds config.json, matrix.md, state.json and
+// specs-stamp.json (default: docs/traceability, relative to --root, which defaults to the
+// current folder; it may also be absolute).
+//
+// --stamp records a fingerprint of the specs; the project's test target runs it right before
+// the tests, so the check can tell results produced against other specs.
 //
 // Without --check it writes matrix.md (no test state: it is versioned) and state.json (with
-// state, for the live view). With --check it writes nothing and exits with an error if there
-// are tests without a scenario, scenarios without tests, failing or only skipped, missing
-// results, or if matrix.md is out of date. Branch coverage is informative: it never blocks.
+// state, for the live view). With --check it writes nothing and exits 1 if there are tests
+// without a scenario, scenarios without tests, failing or only skipped, missing or stale
+// results, no scenarios at all, or if matrix.md is out of date. Errors in the specs (a scenario
+// without ID, a duplicate ID or requirement) exit 1 in any mode; a flag without a value exits 2.
+// Branch coverage is informative: it never blocks.
 // Why and how: the "Traceability matrix" section of the claude-config README.
 
 import { execFileSync } from 'node:child_process'
+import { createHash } from 'node:crypto'
 import { existsSync, lstatSync, readFileSync, readdirSync, realpathSync, statSync, writeFileSync, mkdirSync } from 'node:fs'
 import { dirname, join, relative, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -437,12 +445,10 @@ export function generate(p: Paths, options: { base?: string } = {}): Result {
   const config: Config = JSON.parse(readFileSync(file(p, 'config.json'), 'utf8'))
   const specs = readScenarios(p.root, errors)
 
-  const newestSpec = Math.max(
-    0,
-    ...[...specsIn(join(p.root, 'openspec/specs')), ...specsIn(join(p.root, 'openspec/changes')).filter((s) => !s.capability.startsWith('archive/'))].map(
-      (s) => statSync(s.path).mtimeMs,
-    ),
-  )
+  // Freshness by content, not by file dates: a pull, checkout or touch that does not change a
+  // spec must not make results stale. See readStamp/stamp.
+  const stamp = readStamp(p)
+  const specsChanged = stamp !== null && stamp.hash !== specFingerprint(p.root)
   const tests: Test[] = []
   const missingResults: string[] = []
   const staleResults: string[] = []
@@ -453,7 +459,10 @@ export function generate(p: Paths, options: { base?: string } = {}): Result {
       missingResults.push(`${source.runner} (${source.file})`)
       continue
     }
-    if (statSync(report).mtimeMs < newestSpec) staleResults.push(`${source.runner} (${source.file})`)
+    if (stamp) {
+      if (specsChanged) staleResults.push(`${source.runner} (${source.file}): the specs changed after the last test run`)
+      else if (statSync(report).mtimeMs < stamp.at) staleResults.push(`${source.runner} (${source.file}): not rerun in the last test run`)
+    }
     if (source.runner === 'japa') tests.push(...readJapa(text, source))
     else if (source.runner === 'vitest') tests.push(...readVitest(text, source, p.root, errors))
     else errors.push(`Unknown runner in config.json: ${source.runner}.`)
@@ -495,16 +504,68 @@ export function generate(p: Paths, options: { base?: string } = {}): Result {
   }
 }
 
+// ---------- Freshness stamp ----------
+
+// Fingerprint of the scenarios the tests are meant to verify: the content of every living spec
+// and every in-progress delta (archived changes excluded), with line endings normalised.
+function specFingerprint(root: string): string {
+  const files = [
+    ...specsIn(join(root, 'openspec/specs')),
+    ...specsIn(join(root, 'openspec/changes')).filter((s) => !s.capability.startsWith('archive/')),
+  ]
+    .map((s) => s.path)
+    .sort()
+  const h = createHash('sha256')
+  for (const f of files) {
+    let content = ''
+    try {
+      content = readFileSync(f, 'utf8').replace(/\r\n/g, '\n')
+    } catch {
+      // Gone between listing and reading: it counts as empty.
+    }
+    h.update(toPosix(relative(root, f))).update('\0').update(content).update('\0')
+  }
+  return h.digest('hex')
+}
+
+type Stamp = { hash: string; at: number }
+
+// Written by `--stamp` right before the tests run (the project's test target does it), so the
+// check knows which specs the results were produced against. Without a stamp, freshness is not
+// checked.
+function readStamp(p: Paths): Stamp | null {
+  try {
+    const s = JSON.parse(readFileSync(file(p, 'specs-stamp.json'), 'utf8'))
+    return typeof s.hash === 'string' && typeof s.at === 'number' ? s : null
+  } catch {
+    return null
+  }
+}
+
+export function stamp(p: Paths): void {
+  mkdirSync(dirOf(p), { recursive: true })
+  writeFileSync(file(p, 'specs-stamp.json'), JSON.stringify({ hash: specFingerprint(p.root), at: Date.now() }))
+}
+
 // Every project runs this tool from the claude-config checkout as it stands, so a feature branch
 // or uncommitted changes there change what every project's check does. Say so, without failing.
+// The whole repo counts, not only tools/matrix: the global CLAUDE.md, skills and agents also
+// shape how projects are checked. The expected branch is the remote's default (origin/HEAD),
+// falling back to main.
 function toolCheckoutWarning(): string | undefined {
   const toolDir = dirname(fileURLToPath(import.meta.url))
   try {
     const branch = git(toolDir, 'rev-parse', '--abbrev-ref', 'HEAD').trim()
-    const dirty = git(toolDir, 'status', '--porcelain', '--', '.').trim() !== ''
-    if (branch === 'main' && !dirty) return undefined
-    const what = [branch !== 'main' ? `on branch "${branch}"` : '', dirty ? 'with uncommitted changes' : ''].filter(Boolean).join(' and ')
-    return `The matrix tool runs from a claude-config checkout ${what}, not a clean main: results may differ from other projects.`
+    let expected = 'main'
+    try {
+      expected = git(toolDir, 'symbolic-ref', '--short', 'refs/remotes/origin/HEAD').trim().replace(/^origin\//, '') || 'main'
+    } catch {
+      // No origin/HEAD: keep main.
+    }
+    const dirty = git(toolDir, 'status', '--porcelain').trim() !== ''
+    if (branch === expected && !dirty) return undefined
+    const what = [branch !== expected ? `on branch "${branch}"` : '', dirty ? 'with uncommitted changes' : ''].filter(Boolean).join(' and ')
+    return `The matrix tool runs from a claude-config checkout ${what}, not a clean ${expected}: results may differ from other projects.`
   } catch {
     return undefined
   }
@@ -521,7 +582,7 @@ export function problems(p: Paths, r: Result): string[] {
     out.push(`Test without a scenario: "${t.title}" (${t.file})${hint}`)
   }
   for (const m of r.missingResults) out.push(`Missing results from ${m}: run the tests first`)
-  for (const s of r.staleResults) out.push(`Results from ${s} are older than the specs: run the tests again`)
+  for (const s of r.staleResults) out.push(`Stale results from ${s}: run the tests again`)
   if (!r.scenarios.length) out.push('No scenarios found under openspec/: nothing to trace yet')
   const md = file(p, 'matrix.md')
   // Line endings do not count: a CRLF checkout (core.autocrlf) is not out of date.
@@ -562,6 +623,10 @@ function main(argv: string[]): number {
   } catch (e) {
     console.error(`✖ ${(e as Error).message}`)
     return 2
+  }
+  if (argv.includes('--stamp')) {
+    stamp(p)
+    return 0
   }
   const r = generate(p, base ? { base } : {})
   if (r.toolWarning) console.error(`! ${r.toolWarning}`)
