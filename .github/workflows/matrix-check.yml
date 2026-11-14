@@ -4,10 +4,16 @@ name: Traceability matrix
 # test without a scenario, a scenario without a test (or failing, or only skipped),
 # or an out-of-date matrix.md goes red. The pre-push hook is the local gate; this
 # is the net for whatever skips it (--no-verify, a clone without hooks, a web edit,
-# another contributor). How to call it: the "Traceability matrix" section of the
-# README.
+# another contributor). How to call it: the "La matriu al CI" section of the README.
 #
-# It needs no secrets, so it also runs on PRs from forks.
+# It needs no secrets, so it also runs on PRs from forks. The caller must trigger it
+# on `pull_request`, never `pull_request_target`: it runs the PR's code.
+#
+# Branch coverage is informative and `--check` never uses it, so this job does not
+# measure coverage of new code.
+#
+# The tool always comes from claude-config's main, whatever ref the caller pins
+# this workflow to.
 
 on:
   workflow_call:
@@ -17,11 +23,11 @@ on:
         type: string
         required: true
       setup:
-        description: Shell commands that install dependencies and prepare the project (env files, migrations, browsers).
+        description: Shell commands that install dependencies and prepare the project (env files, migrations, browsers). Never pass values from github.event.*.
         type: string
         required: true
       test-command:
-        description: Runs every test runner and leaves the results where config.json says (with --stamp first).
+        description: Runs every test runner (stamping first with `matrix.ts --stamp`) and leaves the results where config.json says. Never pass values from github.event.*.
         type: string
         default: make test
       node-version:
@@ -36,10 +42,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      # Full history: coverage of new code is measured against the base branch.
       - uses: actions/checkout@v6
         with:
-          fetch-depth: 0
+          fetch-depth: 1
           persist-credentials: false
 
       # The matrix tool, outside the project tree. Projects reach it through CLAUDE_CONFIG.
@@ -59,11 +64,15 @@ jobs:
         run: ${{ inputs.setup }}
 
       - name: Run the tests
+        id: tests
         env:
           CLAUDE_CONFIG: ${{ runner.temp }}/claude-config
         run: ${{ inputs.test-command }}
 
-      # Runs even if some test failed: the matrix says which scenario is red.
+      # Runs even if some test failed, so the matrix names the red scenario; not when
+      # the tests never ran (a failed setup), which would only hide the real cause.
       - name: Check the matrix
-        if: ${{ !cancelled() }}
-        run: node "$RUNNER_TEMP/claude-config/tools/matrix/matrix.ts" --dir "${{ inputs.matrix-dir }}" --check
+        if: ${{ !cancelled() && steps.tests.outcome != 'skipped' }}
+        env:
+          MATRIX_DIR: ${{ inputs.matrix-dir }}
+        run: node "$RUNNER_TEMP/claude-config/tools/matrix/matrix.ts" --dir "$MATRIX_DIR" --check

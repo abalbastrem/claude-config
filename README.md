@@ -77,7 +77,14 @@ jobs:
         cd ../frontend && npm ci && npx playwright install --with-deps chromium
 ```
 
-`setup` instal·la i prepara el que necessiten els tests. `test-command` (per defecte, `make test`) els executa tots i deixa els resultats on diu `config.json`. El workflow passa `CLAUDE_CONFIG` amb la ruta de l'eina.
+Va a `.github/workflows/matrix.yml` del projecte.
+
+- **`setup`** instal·la i prepara el que necessiten els tests. Si el projecte no necessita res, `setup: 'true'`.
+- **`test-command`** (per defecte, `make test`) executa tots els runners, primer amb `matrix.ts --stamp`, i deixa els resultats on diu `config.json`. El workflow passa `CLAUDE_CONFIG` amb la ruta de l'eina.
+- **Seguretat:** ni `setup` ni `test-command` han de rebre valors de `github.event.*`, i el disparador ha de ser `pull_request`, mai `pull_request_target`, perquè executa el codi del PR.
+- **Versió:** `@main` només existeix després del merge. L'eina sempre ve de `main`, encara que el workflow es fixi a una altra versió.
+- **Bloquejar:** el check en vermell només impedeix el merge si està marcat com a obligatori a la protecció de la branca.
+- **Cobertura:** no la mesura, perquè `--check` no la fa servir mai.
 
 ## Agents
 
