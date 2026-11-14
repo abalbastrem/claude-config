@@ -69,7 +69,15 @@ export type Result = {
 // `levels` (Japa) maps a suite name to a test level; `level` (Vitest, Playwright) sets the level of
 // the whole runner. Defaults: Japa "unit" → unit, "e2e" → e2e, any other suite → public interface;
 // Vitest → component; Playwright → e2e.
-type ResultSource = { runner: string; file: string; root?: string; levels?: Record<string, string>; level?: string }
+// `ignoreProjects` (Playwright) lists projects whose runs are not tests of a scenario (a setup).
+type ResultSource = {
+  runner: string
+  file: string
+  root?: string
+  levels?: Record<string, string>
+  level?: string
+  ignoreProjects?: string[]
+}
 type Config = {
   results: ResultSource[]
   baseBranch?: string
@@ -294,9 +302,14 @@ function readVitest(text: string, source: ResultSource, root: string, errors: st
 }
 
 // Playwright, json reporter. Paths in the report are relative to the test directory
-// (`config.rootDir`). With several projects (browsers) each one is a test of its own, and the
-// project name goes into the container. A run that dies before any test (a webServer that
-// does not start) leaves its reason in the top-level `errors`.
+// (`config.rootDir`). A spec runs once per project (browser); it counts as ONE test whose state
+// is the worst of its runs (fail > pass > skipped), so matrix.md does not depend on how many
+// browsers ran. `flaky` (passed on a retry) counts as pass, as a retried Vitest test does.
+// `ignoreProjects` drops projects that are not tests of a scenario, such as an auth setup. A
+// run that dies before any test (a webServer that does not start) leaves its reason in the
+// top-level `errors`.
+const ANSI = /\u001b\[[0-9;]*m/g
+
 function readPlaywright(text: string, source: ResultSource, root: string, errors: string[]): Test[] {
   let report: Record<string, any>
   try {
@@ -306,20 +319,23 @@ function readPlaywright(text: string, source: ResultSource, root: string, errors
     return []
   }
   for (const e of report.errors ?? []) {
-    errors.push(`playwright could not run: ${String(e.message ?? e.value ?? '').split('\n')[0]}`)
+    const lines = String(e.message ?? e.value ?? '').replace(ANSI, '').split(/\r?\n/)
+    errors.push(`playwright could not run: ${lines.find((l) => l.trim()) ?? '(no message)'}`)
   }
+  const ignored = new Set(source.ignoreProjects ?? [])
   const testDir = String(report.config?.rootDir ?? root)
   const tests: Test[] = []
+  const stateOf = (status: string): TestState =>
+    status === 'skipped' ? 'skipped' : status === 'expected' || status === 'flaky' ? 'pass' : 'fail'
   const walk = (suite: Record<string, any>, describes: string[]) => {
     for (const spec of suite.specs ?? []) {
+      const runs = ((spec.tests ?? []) as Record<string, any>[]).filter((t) => !ignored.has(t.projectName))
+      if (!runs.length) continue
+      const states = runs.map((t) => stateOf(t.status))
+      const state: TestState = states.includes('fail') ? 'fail' : states.includes('pass') ? 'pass' : 'skipped'
       const path = toPosix(relative(root, join(testDir, spec.file ?? suite.file ?? '')))
-      const runs: Record<string, any>[] = spec.tests ?? []
-      for (const t of runs) {
-        const state: TestState =
-          t.status === 'skipped' ? 'skipped' : t.status === 'expected' || t.status === 'flaky' ? 'pass' : 'fail'
-        const container = [...describes, ...(runs.length > 1 && t.projectName ? [t.projectName] : [])].join(' › ')
-        tests.push({ runner: 'playwright', level: source.level ?? 'e2e', file: path, title: spec.title, state, ...(container ? { container } : {}) })
-      }
+      const container = describes.join(' › ')
+      tests.push({ runner: 'playwright', level: source.level ?? 'e2e', file: path, title: spec.title, state, ...(container ? { container } : {}) })
     }
     for (const child of suite.suites ?? []) walk(child, child.title ? [...describes, child.title] : describes)
   }
