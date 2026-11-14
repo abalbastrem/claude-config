@@ -32,7 +32,7 @@ node $CLAUDE_CONFIG/tools/matrix/server.ts --dir <dir> [--port 5180]
 They come from the global CLAUDE.md, section Tests.
 
 - Every OpenSpec scenario carries an ID in its title: `#### Scenario: [SC-n] …`. The ID is unique across the repo, and a new scenario takes the next free number. Numbers are never reused.
-- Every test title starts with the ID(s) of the scenario(s) it verifies: `SC-7 · …` or `SC-7 SC-8 · …`.
+- Every test title starts with the ID(s) of the scenario(s) it verifies: `SC-7 · …` or `SC-7 SC-8 · …`. The ID goes on the test itself, not on its `describe` or group: an ID anywhere else does not count, and `--check` points it out.
 - `--check` fails, and so does the pre-push hook, when any of these happen:
   - a test without a scenario;
   - a scenario without tests, with failing tests, or with only skipped tests;
@@ -78,7 +78,8 @@ Prepare a project that already uses OpenSpec. Stop and ask at each step that nee
 
    `root` is the folder Japa runs from, so that file paths are relative to the project. Add `<dir>/state.json` to `.gitignore`.
 3. **Results.**
-   - **Japa:** `node ace test --reporters=spec --reporters=ndjson | tee <file> | grep -v '^{'`. The spec output stays readable, and the JSON lines go only to the file.
+   - **Japa:** `node ace test --reporters=spec --reporters=ndjson | tee <file> | grep -v '^{'`. The spec output stays readable, and the JSON lines go only to the file. Run it under `bash` with `set -o pipefail`, or the pipeline hides Japa's exit code (`dash`, the default `sh` on Ubuntu CI, has no `pipefail`).
+   - **Levels.** Japa takes the level from the suite: `unit` → unit, `e2e` → e2e, any other suite → public interface. Map other suite names with `"levels": { "<suite>": "<level>" }` in that results entry. Vitest is component unless the entry sets `"level"`.
    - **Vitest:** `vitest run --reporter=default --reporter=json --outputFile.json=<file>`.
 4. **Branch coverage.**
    - **Backend (Japa):** add `c8` as a pinned dev dependency, plus a `.c8rc.json` with:
@@ -101,7 +102,7 @@ Prepare a project that already uses OpenSpec. Stop and ask at each step that nee
    - `matrix`: runs `matrix.ts`.
    - `matrix-check`: runs `matrix.ts --check`.
    - `matrix-live`: runs `server.ts`.
-6. **Pre-push hook.** Create `.githooks/pre-push` (executable: `git update-index --chmod=+x`) that runs `make test` and the check target. Activate it with `git config core.hooksPath .githooks`, ideally from the project's setup target.
+6. **Pre-push hook.** Create `.githooks/pre-push` (executable: `git update-index --chmod=+x`) that runs `make test` and the check target. Activate it with `git config core.hooksPath .githooks`, ideally from the project's setup target. Start the hook by checking that `$CLAUDE_CONFIG/tools/matrix/matrix.ts` exists, and fail with a clear message saying where to get claude-config if it does not: a clone without it should not die on a cryptic Node error.
 7. **Scenario IDs.** Number the scenarios that have no `[SC-n]`, in order of appearance, continuing from the highest existing number. Check that `openspec validate --specs --strict` still passes.
 8. **Test IDs: stop and ask.** Propose a table with each test, the scenario(s) you think it verifies, and the doubtful ones marked. Tests that fit no scenario are listed apart.
    - Do not invent scenarios and do not decide a mapping on your own: that is the user's call.
@@ -110,6 +111,9 @@ Prepare a project that already uses OpenSpec. Stop and ask at each step that nee
 9. **Verify.** Run the tests, generate the matrix and show the result. Start the live view only if the user wants it.
 
 ## Notes
+
+- Needs Node 24 or later, which runs the TypeScript directly.
+- The tool warns when it runs from a claude-config checkout that is not a clean `main`, because that changes what every project's check does.
 
 - The tool has no tests of its own on purpose: it only displays the project's tests.
 - The tool and the hooks run from the claude-config folder as it stands. Keep that folder on `main` when you are not working on it.

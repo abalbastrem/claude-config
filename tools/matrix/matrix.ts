@@ -12,14 +12,16 @@
 // Why and how: the "Traceability matrix" section of the claude-config README.
 
 import { execFileSync } from 'node:child_process'
-import { existsSync, lstatSync, readFileSync, readdirSync, realpathSync, writeFileSync, mkdirSync } from 'node:fs'
-import { join, relative, resolve, sep } from 'node:path'
+import { existsSync, lstatSync, readFileSync, readdirSync, realpathSync, statSync, writeFileSync, mkdirSync } from 'node:fs'
+import { dirname, join, relative, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 type TestState = 'pass' | 'fail' | 'skipped'
 type ScenarioState = TestState | 'no-test'
 
-export type Test = { runner: string; level: string; file: string; title: string; state: TestState }
+// `container` is the describe (Vitest) or group (Japa) the test lives in. It never carries the
+// test's IDs (those go on the test itself), but it helps explain an orphan.
+export type Test = { runner: string; level: string; file: string; title: string; state: TestState; container?: string }
 export type Scenario = {
   id: string
   name: string
@@ -47,13 +49,21 @@ export type Result = {
   scenarios: Scenario[]
   orphans: Test[]
   missingResults: string[]
+  // Results older than the newest spec: they cannot say anything about the current scenarios.
+  staleResults: string[]
   errors: string[]
+  // Set when this tool runs from a claude-config checkout that is not a clean main.
+  toolWarning?: string
   coverage: Coverage
   markdown: string
 }
 
+// `levels` (Japa) maps a suite name to a test level; `level` (Vitest) sets the level of the whole
+// runner. Defaults: Japa "unit" → unit, "e2e" → e2e, any other suite → public interface;
+// Vitest → component.
+type ResultSource = { runner: string; file: string; root?: string; levels?: Record<string, string>; level?: string }
 type Config = {
-  results: { runner: string; file: string; root?: string }[]
+  results: ResultSource[]
   baseBranch?: string
   coverage?: { layer: string; file: string }[]
 }
@@ -68,7 +78,9 @@ const LEADING_IDS = /^\s*(SC-\d+(?:[\s,]+SC-\d+)*)(?=\s|·|:|$)/
 const idsOf = (title: string): string[] => [...new Set(title.match(LEADING_IDS)?.[1].match(/SC-\d+/g) ?? [])]
 
 const toPosix = (p: string) => p.split(sep).join('/').replace(/\\/g, '/')
-const file = (p: Paths, name: string) => join(p.root, p.dir, name)
+// `dir` may be relative to the project root or absolute.
+const dirOf = (p: Paths) => resolve(p.root, p.dir)
+const file = (p: Paths, name: string) => join(dirOf(p), name)
 
 // ---------- Specs ----------
 
@@ -162,6 +174,9 @@ function readScenarios(root: string, errors: string[]): SpecScenario[] {
         seen.add(s.id)
         list.push({ id: s.id, name: s.name, capability, requirement: b.requirement, origin: 'spec' })
       }
+      if (byRequirement.has(key(capability, b.requirement))) {
+        errors.push(`Duplicate requirement in ${where}: "${b.requirement}". Each requirement appears once per capability.`)
+      }
       byRequirement.set(key(capability, b.requirement), list)
     }
   }
@@ -214,9 +229,13 @@ function readScenarios(root: string, errors: string[]): SpecScenario[] {
 
 // Japa, ndjson reporter. Non-JSON lines (other reporters, logs) are ignored, so the file can be
 // the whole tee'd output of the run. `root` is the folder Japa runs from, relative to the project.
-function readJapa(text: string, runnerRoot: string): Test[] {
+const JAPA_LEVELS: Record<string, string> = { unit: 'unit', e2e: 'e2e' }
+
+function readJapa(text: string, source: ResultSource): Test[] {
+  const levels = { ...JAPA_LEVELS, ...(source.levels ?? {}) }
   const tests: Test[] = []
   let suite = ''
+  let group = ''
   for (const line of text.split(/\r?\n/)) {
     if (!line.startsWith('{')) continue
     let ev: Record<string, any>
@@ -226,22 +245,31 @@ function readJapa(text: string, runnerRoot: string): Test[] {
       continue
     }
     if (ev.event === 'suite:start') suite = ev.name
+    if (ev.event === 'group:start') group = ev.title ?? ''
+    if (ev.event === 'group:end') group = ''
     if (ev.event !== 'test:end') continue
     const state: TestState = ev.isSkipped || ev.isTodo ? 'skipped' : (ev.errors ?? []).length ? 'fail' : 'pass'
     tests.push({
       runner: 'japa',
-      level: suite === 'unit' ? 'unit' : 'public interface',
-      file: toPosix(join(runnerRoot, ev.relativePath ?? '')),
+      level: levels[suite] ?? 'public interface',
+      file: toPosix(join(source.root ?? '', ev.relativePath ?? '')),
       title: ev.title?.expanded ?? ev.title?.original ?? '',
       state,
+      ...(group ? { container: group } : {}),
     })
   }
   return tests
 }
 
 // Vitest, json reporter.
-function readVitest(text: string, root: string, errors: string[]): Test[] {
-  const report = JSON.parse(text)
+function readVitest(text: string, source: ResultSource, root: string, errors: string[]): Test[] {
+  let report: Record<string, any>
+  try {
+    report = JSON.parse(text)
+  } catch {
+    errors.push(`The vitest results in ${source.file} are not valid JSON (a run cut short?). Run the tests again.`)
+    return []
+  }
   const tests: Test[] = []
   for (const f of report.testResults ?? []) {
     const path = toPosix(relative(root, f.name))
@@ -250,7 +278,8 @@ function readVitest(text: string, root: string, errors: string[]): Test[] {
     }
     for (const a of f.assertionResults ?? []) {
       const state: TestState = a.status === 'passed' ? 'pass' : a.status === 'failed' ? 'fail' : 'skipped'
-      tests.push({ runner: 'vitest', level: 'component', file: path, title: a.title, state })
+      const container = (a.ancestorTitles ?? []).join(' › ')
+      tests.push({ runner: 'vitest', level: source.level ?? 'component', file: path, title: a.title, state, ...(container ? { container } : {}) })
     }
   }
   return tests
@@ -381,7 +410,7 @@ function coverage(root: string, config: Config, forcedBase?: string): Coverage {
       const changed = changes?.get(rel)
       for (const [id, branch] of Object.entries<any>(f.branchMap ?? {})) {
         const counts: number[] = f.b?.[id] ?? []
-        branch.locations.forEach((loc: any, i: number) => {
+        ;(branch.locations ?? []).forEach((loc: any, i: number) => {
           const covered = (counts[i] ?? 0) > 0
           c.global.total++
           if (covered) c.global.covered++
@@ -408,18 +437,26 @@ export function generate(p: Paths, options: { base?: string } = {}): Result {
   const config: Config = JSON.parse(readFileSync(file(p, 'config.json'), 'utf8'))
   const specs = readScenarios(p.root, errors)
 
+  const newestSpec = Math.max(
+    0,
+    ...[...specsIn(join(p.root, 'openspec/specs')), ...specsIn(join(p.root, 'openspec/changes')).filter((s) => !s.capability.startsWith('archive/'))].map(
+      (s) => statSync(s.path).mtimeMs,
+    ),
+  )
   const tests: Test[] = []
   const missingResults: string[] = []
-  for (const { runner, file: path, root: runnerRoot } of config.results) {
-    const report = join(p.root, path)
+  const staleResults: string[] = []
+  for (const source of config.results) {
+    const report = join(p.root, source.file)
     const text = existsSync(report) ? readFileSync(report, 'utf8').trim() : ''
     if (!text) {
-      missingResults.push(`${runner} (${path})`)
+      missingResults.push(`${source.runner} (${source.file})`)
       continue
     }
-    if (runner === 'japa') tests.push(...readJapa(text, runnerRoot ?? ''))
-    else if (runner === 'vitest') tests.push(...readVitest(text, p.root, errors))
-    else errors.push(`Unknown runner in config.json: ${runner}.`)
+    if (statSync(report).mtimeMs < newestSpec) staleResults.push(`${source.runner} (${source.file})`)
+    if (source.runner === 'japa') tests.push(...readJapa(text, source))
+    else if (source.runner === 'vitest') tests.push(...readVitest(text, source, p.root, errors))
+    else errors.push(`Unknown runner in config.json: ${source.runner}.`)
   }
 
   const ids = new Set(specs.map((s) => s.id))
@@ -445,13 +482,31 @@ export function generate(p: Paths, options: { base?: string } = {}): Result {
     return { ...s, state, tests }
   })
 
+  const toolWarning = toolCheckoutWarning()
   return {
     scenarios,
     orphans,
     missingResults,
+    staleResults,
     errors,
+    ...(toolWarning ? { toolWarning } : {}),
     coverage: coverage(p.root, config, options.base),
     markdown: markdown(scenarios, orphans),
+  }
+}
+
+// Every project runs this tool from the claude-config checkout as it stands, so a feature branch
+// or uncommitted changes there change what every project's check does. Say so, without failing.
+function toolCheckoutWarning(): string | undefined {
+  const toolDir = dirname(fileURLToPath(import.meta.url))
+  try {
+    const branch = git(toolDir, 'rev-parse', '--abbrev-ref', 'HEAD').trim()
+    const dirty = git(toolDir, 'status', '--porcelain', '--', '.').trim() !== ''
+    if (branch === 'main' && !dirty) return undefined
+    const what = [branch !== 'main' ? `on branch "${branch}"` : '', dirty ? 'with uncommitted changes' : ''].filter(Boolean).join(' and ')
+    return `The matrix tool runs from a claude-config checkout ${what}, not a clean main: results may differ from other projects.`
+  } catch {
+    return undefined
   }
 }
 
@@ -461,8 +516,13 @@ export function problems(p: Paths, r: Result): string[] {
   if (ids('no-test').length) out.push(`Scenarios without tests: ${ids('no-test').join(', ')}`)
   if (ids('fail').length) out.push(`Scenarios with failing tests: ${ids('fail').join(', ')}`)
   if (ids('skipped').length) out.push(`Scenarios with only skipped tests: ${ids('skipped').join(', ')}`)
-  for (const t of r.orphans) out.push(`Test without a scenario: "${t.title}" (${t.file})`)
+  for (const t of r.orphans) {
+    const hint = t.container && idsOf(t.container).length ? ` — the ID is on its describe/group "${t.container}"; it must be on the test itself` : ''
+    out.push(`Test without a scenario: "${t.title}" (${t.file})${hint}`)
+  }
   for (const m of r.missingResults) out.push(`Missing results from ${m}: run the tests first`)
+  for (const s of r.staleResults) out.push(`Results from ${s} are older than the specs: run the tests again`)
+  if (!r.scenarios.length) out.push('No scenarios found under openspec/: nothing to trace yet')
   const md = file(p, 'matrix.md')
   // Line endings do not count: a CRLF checkout (core.autocrlf) is not out of date.
   const sameText = (a: string, b: string) => a.replace(/\r\n/g, '\n') === b.replace(/\r\n/g, '\n')
@@ -473,21 +533,38 @@ export function problems(p: Paths, r: Result): string[] {
 }
 
 export function write(p: Paths, r: Result): void {
-  mkdirSync(join(p.root, p.dir), { recursive: true })
+  mkdirSync(dirOf(p), { recursive: true })
   writeFileSync(file(p, 'matrix.md'), r.markdown)
   const { markdown: _md, ...state } = r
   writeFileSync(file(p, 'state.json'), JSON.stringify({ generatedAt: new Date().toISOString(), ...state }, null, 2))
 }
 
+// Value of a CLI flag. A flag present without a value (or followed by another flag) is an error,
+// not a silent default.
+export function flag(argv: string[], name: string): string | undefined {
+  const i = argv.indexOf(name)
+  if (i < 0) return undefined
+  const v = argv[i + 1]
+  if (v === undefined || v.startsWith('-')) throw new Error(`${name} needs a value`)
+  return v
+}
+
 export function pathsFrom(argv: string[]): Paths {
-  const value = (flag: string) => (argv.includes(flag) ? argv[argv.indexOf(flag) + 1] : undefined)
-  return { root: resolve(value('--root') ?? process.cwd()), dir: value('--dir') ?? 'docs/traceability' }
+  return { root: resolve(flag(argv, '--root') ?? process.cwd()), dir: flag(argv, '--dir') ?? 'docs/traceability' }
 }
 
 function main(argv: string[]): number {
-  const p = pathsFrom(argv)
-  const b = argv.indexOf('--base')
-  const r = generate(p, b >= 0 ? { base: argv[b + 1] } : {})
+  let p: Paths
+  let base: string | undefined
+  try {
+    p = pathsFrom(argv)
+    base = flag(argv, '--base')
+  } catch (e) {
+    console.error(`✖ ${(e as Error).message}`)
+    return 2
+  }
+  const r = generate(p, base ? { base } : {})
+  if (r.toolWarning) console.error(`! ${r.toolWarning}`)
 
   if (r.errors.length) {
     for (const e of r.errors) console.error(`✖ ${e}`)
@@ -497,7 +574,7 @@ function main(argv: string[]): number {
     const found = problems(p, r)
     for (const x of found) console.error(`✖ ${x}`)
     if (found.length) return 1
-    console.log(`✔ Matrix is green: ${r.scenarios.length} scenarios, all with passing tests.`)
+    console.log(`✔ Matrix is green: ${r.scenarios.length} scenarios, all with passing tests, and every test traced.`)
     return 0
   }
   write(p, r)

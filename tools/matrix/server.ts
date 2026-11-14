@@ -9,9 +9,9 @@
 
 import { createServer, type ServerResponse } from 'node:http'
 import { existsSync, readFileSync, realpathSync, unwatchFile, watch, watchFile, type FSWatcher } from 'node:fs'
-import { dirname, join } from 'node:path'
+import { basename, dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { generate, isMain, pathsFrom, type Paths } from './matrix.ts'
+import { flag, generate, isMain, pathsFrom, type Paths } from './matrix.ts'
 
 const VIEW = join(dirname(fileURLToPath(import.meta.url)), 'view.html')
 
@@ -19,19 +19,20 @@ export async function start({ root: requestedRoot, dir, port }: Paths & { port: 
   // Long, real path: on Windows fs.watch aborts the process with 8.3 short paths (e.g. USER~1).
   const root = realpathSync.native(requestedRoot)
   const clients = new Set<ServerResponse>()
-  let last = ''
+  let lastGood: Record<string, unknown> | null = null
 
+  // If the matrix cannot be recomputed (a results file half written, a broken config), the last
+  // good state is kept but marked `stale`, so the page never passes it off as live.
   const compute = (): string => {
     try {
       const { markdown: _md, ...state } = generate({ root, dir })
-      last = JSON.stringify({ generatedAt: new Date().toISOString(), ...state })
+      lastGood = { generatedAt: new Date().toISOString(), ...state }
+      return JSON.stringify(lastGood)
     } catch (e) {
-      // A results file half written: keep the last good state and retry on the next change.
-      if (!last) {
-        last = JSON.stringify({ errors: [`Could not compute the matrix: ${(e as Error).message}`], scenarios: [], orphans: [], missingResults: [] })
-      }
+      const stale = `Could not recompute the matrix: ${(e as Error).message}`
+      if (lastGood) return JSON.stringify({ ...lastGood, stale })
+      return JSON.stringify({ errors: [stale], scenarios: [], orphans: [], missingResults: [], stale })
     }
-    return last
   }
 
   const broadcast = () => {
@@ -45,13 +46,40 @@ export async function start({ root: requestedRoot, dir, port }: Paths & { port: 
     pending = setTimeout(broadcast, 150)
   }
 
-  const config = JSON.parse(readFileSync(join(root, dir, 'config.json'), 'utf8'))
-  const watchers: FSWatcher[] = []
-  const watchDir = (d: string, recursive: boolean) => {
-    if (existsSync(d)) watchers.push(watch(d, { recursive }, onChange))
+  const config = JSON.parse(readFileSync(join(resolve(root, dir), 'config.json'), 'utf8'))
+
+  // A watched folder may not exist yet (first run) or disappear (rm -rf tmp/): on Windows the
+  // watcher then errors out. Errors are caught and the folder is watched again when it is back.
+  // `relevant` filters the events: a results folder like tmp/ also holds the dev database.
+  const watchers = new Map<string, FSWatcher>()
+  const retries: NodeJS.Timeout[] = []
+  const watchDir = (d: string, recursive: boolean, relevant: (name: string) => boolean) => {
+    const attach = () => {
+      if (watchers.has(d) || !existsSync(d)) return
+      try {
+        const w = watch(d, { recursive }, (_event, name) => {
+          if (name && relevant(String(name).replace(/\\/g, '/'))) onChange()
+        })
+        w.on('error', () => {
+          w.close()
+          watchers.delete(d)
+        })
+        watchers.set(d, w)
+        onChange()
+      } catch {
+        // Not there yet: the retry below picks it up.
+      }
+    }
+    attach()
+    retries.push(setInterval(attach, 2000))
   }
-  watchDir(join(root, 'openspec'), true)
-  for (const d of new Set<string>(config.results.map((r: { file: string }) => dirname(join(root, r.file))))) watchDir(d, false)
+  watchDir(join(root, 'openspec'), true, (name) => name.endsWith('.md'))
+  const resultFiles = new Map<string, Set<string>>()
+  for (const r of config.results as { file: string }[]) {
+    const full = join(root, r.file)
+    resultFiles.set(dirname(full), (resultFiles.get(dirname(full)) ?? new Set()).add(basename(full)))
+  }
+  for (const [d, names] of resultFiles) watchDir(d, false, (name) => names.has(name))
   // Coverage folders are deleted and recreated on every run, and fs.watch does not survive
   // that: coverage reports are polled instead.
   const polled: string[] = (config.coverage ?? []).map((c: { file: string }) => join(root, c.file))
@@ -86,7 +114,8 @@ export async function start({ root: requestedRoot, dir, port }: Paths & { port: 
     stop: () =>
       new Promise<void>((ok) => {
         clearTimeout(pending)
-        for (const w of watchers) w.close()
+        for (const t of retries) clearInterval(t)
+        for (const w of watchers.values()) w.close()
         for (const f of polled) unwatchFile(f)
         for (const c of clients) c.end()
         server.close(() => ok())
@@ -97,8 +126,17 @@ export async function start({ root: requestedRoot, dir, port }: Paths & { port: 
 
 if (isMain(import.meta.url)) {
   const argv = process.argv.slice(2)
-  const port = Number(argv.includes('--port') ? argv[argv.indexOf('--port') + 1] : 5180)
-  const s = await start({ ...pathsFrom(argv), port })
+  let paths: Paths
+  let port: number
+  try {
+    paths = pathsFrom(argv)
+    port = Number(flag(argv, '--port') ?? 5180)
+    if (!Number.isInteger(port) || port < 0 || port > 65535) throw new Error('--port must be a number between 0 and 65535')
+  } catch (e) {
+    console.error(`✖ ${(e as Error).message}`)
+    process.exit(2)
+  }
+  const s = await start({ ...paths, port })
   console.log(`Traceability matrix live at http://localhost:${s.port}`)
   console.log('It repaints itself every time the tests run. Ctrl-C to stop.')
 }

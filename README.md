@@ -56,6 +56,8 @@ Per preparar-hi un projecte, la skill `skills/matrix/` (`/matrix setup`) crea la
 
 L'eina no té tests propis expressament: només mostra els del projecte. Necessita Node 24 o posterior, que executa el TypeScript directament.
 
+Com que tots els projectes l'executen des d'aquesta carpeta, l'eina avisa quan la carpeta no és a `main` o té canvis sense commit: en aquest cas, el `--check` de tots els projectes depèn d'aquesta branca.
+
 ## Agents
 
 - `agents/adversarial-reviewer.md`: revisa un PR per trencar-lo, no per aprovar-lo. A més de bugs i seguretat, comprova les regles de tests del `CLAUDE.md`: que cada test pengi d'un criteri, el nivell de cada test, l'E2E i la classificació de la cobertura. Claude Code només llegeix agents d'usuari de `~/.claude/agents/`, així que cal copiar-hi el fitxer. Si un projecte té un agent amb el mateix nom a `.claude/agents/`, mana el del projecte.
