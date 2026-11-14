@@ -41,7 +41,8 @@ Els sons són a `hooks/sounds/` i vénen de Freesound. Per canviar-los, posa-hi 
 
 Ho fa amb tres fitxers:
 
-- `matrix.ts` genera `matrix.md`, que es versiona i no porta l'estat dels tests, i `state.json`, que no es versiona. Amb `--check` falla si hi ha tests sense escenari, escenaris sense test, en vermell o només omesos, o si `matrix.md` està desfasat. La cobertura és informativa i no bloqueja mai.
+- `matrix.ts` genera `matrix.md`, que es versiona i no porta l'estat dels tests, i `state.json`, que no es versiona. Amb `--check` falla si hi ha tests sense escenari, escenaris sense test, en vermell o només omesos, resultats que falten o antics, cap escenari, o si `matrix.md` està desfasat. Els errors de les specs (escenari sense ID, ID o requisit repetit) fan fallar qualsevol mode. La cobertura és informativa i no bloqueja mai.
+- `matrix.ts --stamp` desa una empremta del contingut de les specs. El target de tests del projecte la crida just abans dels tests, i així el `--check` sap si els resultats són d'unes altres specs o si un runner no s'ha tornat a executar. No es fa per dates: un `pull` o un `touch` que no canvia res no compta.
 - `server.ts` serveix `view.html` (per defecte a `http://localhost:5180`) i la repinta per SSE cada vegada que canvien les specs, els resultats o la cobertura, sense recarregar.
 - La configuració de cada projecte viu al mateix projecte, a `<dir>/config.json`: els runners, on deixen els resultats, la branca base i els informes de cobertura.
 
@@ -55,6 +56,8 @@ node $CLAUDE_CONFIG/tools/matrix/server.ts --dir docs/traceability [--port 5180]
 Per preparar-hi un projecte, la skill `skills/matrix/` (`/matrix setup`) crea la configuració, els targets de `make`, el hook pre-push i la cobertura, i numera els escenaris. L'assignació de tests a escenaris te la proposa, però la decideixes tu. Com les altres skills, cal copiar-la a `~/.claude/skills/matrix/`.
 
 L'eina no té tests propis expressament: només mostra els del projecte. Necessita Node 24 o posterior, que executa el TypeScript directament.
+
+Com que tots els projectes l'executen des d'aquesta carpeta, l'eina avisa quan la carpeta no és a la seva branca per defecte o té canvis sense commit en qualsevol fitxer: en aquest cas, el `--check` de tots els projectes depèn d'aquesta branca.
 
 ## Agents
 

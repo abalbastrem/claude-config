@@ -122,13 +122,24 @@
 
     const list = (items, none) => items.length ? `<ul class="list">${items.join('')}</ul>` : `<p class="empty">${none}</p>`
     $('orphans').innerHTML = list(orphans.map((t) => `<li><span class="fail">${esc(t.title)}</span> <small>· ${esc(t.level)} · ${esc(t.file)}</small></li>`), 'None.')
-    $('missing').innerHTML = list((m.missingResults ?? []).map((f) => `<li>${esc(f)} — run the tests</li>`), 'None: there are results from every runner.')
-    $('errors').innerHTML = (m.errors ?? []).map((e) => `<div class="warning">${esc(e)}</div>`).join('')
+    $('missing').innerHTML = list([
+      ...(m.missingResults ?? []).map((f) => `<li>${esc(f)} — run the tests</li>`),
+      ...(m.staleResults ?? []).map((f) => `<li>${esc(f)} — older than the specs: run the tests again</li>`),
+    ], 'None: there are up-to-date results from every runner.')
+    $('errors').innerHTML = [
+      ...(m.errors ?? []).map((e) => `<div class="warning">${esc(e)}</div>`),
+      ...(m.toolWarning ? [`<div class="warning">${esc(m.toolWarning)}</div>`] : []),
+    ].join('')
     paintCoverage(m.coverage)
 
     const time = new Date(m.generatedAt ?? Date.now()).toLocaleTimeString()
-    $('connection').className = 'connection'
-    $('connection').textContent = `Live · updated at ${time}`
+    if (m.stale) {
+      $('connection').className = 'connection down'
+      $('connection').textContent = `Stale since ${time}: ${m.stale}`
+    } else {
+      $('connection').className = 'connection'
+      $('connection').textContent = `Live · updated at ${time}`
+    }
   }
 
   function paintCoverage(cov) {
