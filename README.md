@@ -63,6 +63,25 @@ Com que tots els projectes l'executen des d'aquesta carpeta, l'eina avisa quan l
 
 - `agents/adversarial-reviewer.md`: revisa un PR per trencar-lo, no per aprovar-lo. A més de bugs i seguretat, comprova les regles de tests del `CLAUDE.md`: que cada test pengi d'un criteri, el nivell de cada test, l'E2E i la classificació de la cobertura. Claude Code només llegeix agents d'usuari de `~/.claude/agents/`, així que cal copiar-hi el fitxer. Si un projecte té un agent amb el mateix nom a `.claude/agents/`, mana el del projecte.
 
+### El revisor adversarial al CI
+
+`.github/workflows/adversarial-review.yml` és un workflow reutilitzable: qualsevol dels meus repos el crida i, a cada PR, l'agent `adversarial-reviewer` hi deixa un comentari. És consultiu i no bloqueja el merge. Fa servir l'agent del projecte si n'hi ha a `.claude/agents/` i, si no, el d'aquest repo, amb aquest `CLAUDE.md` com a global.
+
+Per activar-lo en un repo, s'hi afegeix `.github/workflows/adversarial-review.yml`:
+
+```yaml
+name: Adversarial review
+on:
+  pull_request:
+    types: [opened, ready_for_review, labeled]
+jobs:
+  review:
+    uses: abalbastrem/claude-config/.github/workflows/adversarial-review.yml@main
+    secrets: inherit
+```
+
+I el secret `CLAUDE_CODE_OAUTH_TOKEN` (de `claude setup-token`) a *Settings → Secrets and variables → Actions* del repo. Es torna a llançar posant l'etiqueta `ai-review` al PR. No funciona amb PR que vénen de forks, perquè GitHub no els passa els secrets.
+
 ## Skills
 
 - `skills/prompt-log/`: activa i desactiva el registre de prompts (`/prompt-log on|off|status`). Claude Code només llegeix skills de `~/.claude/skills/`, així que cal copiar-hi la carpeta. Afegeix `.claude/prompt-log.active` al `.gitignore` de cada projecte on la facis servir.
