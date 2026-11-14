@@ -65,7 +65,7 @@ Com que tots els projectes l'executen des d'aquesta carpeta, l'eina avisa quan l
 
 ### El revisor adversarial al CI
 
-`.github/workflows/adversarial-review.yml` és un workflow reutilitzable: qualsevol dels meus repos el crida i, a cada PR, l'agent `adversarial-reviewer` hi deixa un comentari. És consultiu i no bloqueja el merge. Fa servir l'agent del projecte si n'hi ha a `.claude/agents/` i, si no, el d'aquest repo, amb aquest `CLAUDE.md` com a global.
+`.github/workflows/adversarial-review.yml` és un workflow reutilitzable. Qualsevol dels meus repos el crida, i a cada PR l'agent `adversarial-reviewer` hi deixa un comentari. És consultiu i no bloqueja el merge. Fa servir l'agent del projecte si n'hi ha a `.claude/agents/` i, si no, el d'aquest repo, amb aquest `CLAUDE.md` com a global.
 
 Per activar-lo en un repo, s'hi afegeix `.github/workflows/adversarial-review.yml`:
 
@@ -74,13 +74,29 @@ name: Adversarial review
 on:
   pull_request:
     types: [opened, ready_for_review, labeled]
+permissions:
+  contents: read
+  pull-requests: write
 jobs:
   review:
     uses: abalbastrem/claude-config/.github/workflows/adversarial-review.yml@main
-    secrets: inherit
+    secrets:
+      CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
 ```
 
-I el secret `CLAUDE_CODE_OAUTH_TOKEN` (de `claude setup-token`) a *Settings → Secrets and variables → Actions* del repo. Es torna a llançar posant l'etiqueta `ai-review` al PR. No funciona amb PR que vénen de forks, perquè GitHub no els passa els secrets.
+I el secret `CLAUDE_CODE_OAUTH_TOKEN` (de `claude setup-token`) a *Settings → Secrets and variables → Actions* del repo.
+
+- **`permissions` és obligatori:** un workflow reutilitzable no pot tenir més permisos que el que el crida, i sense `pull-requests: write` no pot comentar.
+- **Quan corre:** quan s'obre un PR que no és un esborrany, quan un esborrany es marca com a llest i quan s'hi posa l'etiqueta `ai-review`. Per tornar-lo a llançar, cal treure l'etiqueta i tornar-la a posar.
+- **Forks i Dependabot:** els PR que en vénen se salten sense error, perquè GitHub no els passa els secrets. No ho arreglis canviant a `pull_request_target`: executaria el prompt amb secrets sobre codi d'algú altre.
+
+**Seguretat.** El PR és entrada no fiable:
+
+- La configuració del revisor (l'agent, `CLAUDE.md`, `AGENTS.md` i `.claude/settings.json`) surt de la **base** del PR. Així, un PR no pot reescriure el seu propi revisor.
+- El codi del PR es descarrega a part i només per llegir-lo.
+- No queda cap credencial al disc.
+- El model no pot editar, ni sortir a internet, ni llegir `/proc` o `.git`, ni publicar res: torna la revisió com a resposta, i la publica un pas posterior en què no intervé cap model.
+- Els projectes que el criden fan servir `@main`, així que un push aquí afecta tots els repos alhora.
 
 ## Skills
 
