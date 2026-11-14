@@ -53,7 +53,7 @@ node $CLAUDE_CONFIG/tools/matrix/matrix.ts --dir docs/traceability [--check] [--
 node $CLAUDE_CONFIG/tools/matrix/server.ts --dir docs/traceability [--port 5180]
 ```
 
-Per preparar-hi un projecte, la skill `skills/matrix/` (`/matrix setup`) crea la configuració, els targets de `make`, el hook pre-push (typecheck, tests i `--check`, en aquest ordre) i la cobertura, i numera els escenaris. L'assignació de tests a escenaris te la proposa, però la decideixes tu. Com les altres skills, cal copiar-la a `~/.claude/skills/matrix/`.
+Per preparar-hi un projecte, la skill `skills/matrix/` (`/matrix setup`) crea la configuració, els targets de `make`, el hook pre-push (typecheck si el projecte en té, tests i `--check`, en aquest ordre) i la cobertura, i numera els escenaris. L'assignació de tests a escenaris te la proposa, però la decideixes tu. Com les altres skills, cal copiar-la a `~/.claude/skills/matrix/`.
 
 L'eina no té tests propis expressament: només mostra els del projecte. Necessita Node 24 o posterior, que executa el TypeScript directament.
 
