@@ -45,6 +45,8 @@ They come from the global CLAUDE.md, section Tests.
 
 ## Branch analysis
 
+It needs coverage of every source file, loaded or not: c8 with `all: true` and `src`/`include`, Vitest with `coverage.include`. Without that, a module no test loads is simply missing from the report.
+
 The live view lists every uncovered branch per layer and file: line, code, branch type, whether it is new code, and its class. A module no test loads is one finding ("whole module"), not a branch on line 1. Paths of one branch on the same line count as one finding.
 
 Classes are the four of the global CLAUDE.md ("Tancament de la Story"), and they live in a versioned file of the project, `<dir>/branches.json` (config `classifications` to rename it):

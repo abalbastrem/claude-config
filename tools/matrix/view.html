@@ -205,7 +205,7 @@
     for (const b of all) if (b.classification) byClass[b.classification.class] = (byClass[b.classification.class] ?? 0) + 1
     const unclassified = all.filter((b) => !b.classification).length
     const chips = [
-      `<span class="chip">${all.length} uncovered</span>`,
+      `<span class="chip" title="Paths of one branch on the same line, and whole modules, count once">${all.length} findings</span>`,
       `<span class="chip ${unclassified ? 'unclassified' : ''}">${unclassified} not classified</span>`,
       ...Object.entries(byClass).map(([k, n]) => `<span class="chip">${n} ${esc(CLASS_LABEL[k] ?? k)}</span>`),
       ...((cov.obsolete ?? []).length ? [`<span class="chip obsolete">${cov.obsolete.length} obsolete classifications</span>`] : []),
@@ -222,7 +222,7 @@
         return fold(`file:${l.layer}:${f}`, 'file', `${esc(f)} <span class="empty">— ${count}</span>`, items)
       }).join('')
       const left = (l.branches ?? []).filter((b) => !b.classification).length
-      const title = `${esc(l.layer)} — ${(l.branches ?? []).length} uncovered · ${left} not classified`
+      const title = `${esc(l.layer)} — ${(l.branches ?? []).length} findings · ${left} not classified`
       return fold(`layer:${l.layer}`, 'layer', title, files || '<p class="empty">Nothing with these filters.</p>')
     }).join('')
 
@@ -269,7 +269,12 @@
       d.addEventListener('toggle', () => { d.open ? ui.open.add(d.dataset.key) : ui.open.delete(d.dataset.key) })
     }
     for (const box of document.querySelectorAll('#coverage input[data-filter]')) {
-      box.addEventListener('change', () => { ui[box.dataset.filter] = box.checked; if (lastCoverage) paintCoverage(lastCoverage) })
+      box.addEventListener('change', () => {
+        ui[box.dataset.filter] = box.checked
+        if (lastCoverage) paintCoverage(lastCoverage)
+        // The repaint replaces the checkbox: give the focus back to the new one.
+        document.querySelector(`#coverage input[data-filter="${box.dataset.filter}"]`)?.focus()
+      })
     }
   }
 

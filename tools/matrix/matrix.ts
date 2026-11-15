@@ -416,12 +416,16 @@ function markdown(scenarios: Scenario[], orphans: Test[], classifications: Class
   // the matrix does not churn with every run. The live view shows what is still unclassified.
   if (classifications.length) {
     l.push('', '## Classified uncovered branches', '', '| File | Code | Class | Why | Ref |', '|---|---|---|---|---|')
-    const sorted = [...classifications].sort((a, b) => a.file.localeCompare(b.file) || a.code.localeCompare(b.code))
+    // Plain code-unit order, not localeCompare: matrix.md must come out the same on every machine.
+    const cmp = (x: string, y: string) => (x < y ? -1 : x > y ? 1 : 0)
+    const sorted = [...classifications].sort((a, b) => cmp(a.file, b.file) || cmp(a.code, b.code))
+    // A line break in a hand-written note would break the table row.
+    const flat = (s: string) => cell(s.replace(/\s*\r?\n\s*/g, ' '))
     for (const c of sorted) {
       // Code with backticks needs a longer fence: `` a `b` ``.
       const fence = c.code.includes('`') ? '``' : '`'
       const code = c.code === MODULE_NOT_RUN ? '_(whole module)_' : `${fence} ${cell(c.code)} ${fence}`
-      l.push(`| \`${c.file}\` | ${code} | ${CLASS_LABELS[c.class]} | ${cell(c.note)} | ${c.ref ? cell(c.ref) : '—'} |`)
+      l.push(`| \`${c.file}\` | ${code} | ${CLASS_LABELS[c.class]} | ${flat(c.note)} | ${c.ref ? flat(c.ref) : '—'} |`)
     }
   }
   return l.join('\n') + '\n'
@@ -594,10 +598,12 @@ function coverage(p: Paths, config: Config, forcedBase?: string): Coverage {
     for (const f of Object.values(data)) {
       const rel = toPosix(relative(root, f.path))
       const changed = changes?.get(rel)
-      // A file no test loads: every statement at 0. c8 reports it as one branch on line 1; it is
-      // one finding (the whole module), not a branch of line 1.
+      // A file no test loads: every statement and every function at 0. c8 reports it as one branch
+      // on line 1; it is one finding (the whole module), not a branch of line 1. Requiring the
+      // functions too keeps a loaded file whose only function is never called out of it.
       const statements = Object.values<number>(f.s ?? {})
-      const moduleNotRun = statements.length > 0 && statements.every((n) => n === 0)
+      const functions = Object.values<number>(f.f ?? {})
+      const moduleNotRun = statements.length > 0 && statements.every((n) => n === 0) && functions.every((n) => n === 0)
       const fc: FileCoverage = { file: rel, total: 0, uncovered: 0, moduleNotRun }
       // Paths of one branch that land on the same line and code are one finding.
       const own = new Map<string, UncoveredBranch>()
@@ -626,7 +632,12 @@ function coverage(p: Paths, config: Config, forcedBase?: string): Coverage {
           }
           if (!covered && !moduleNotRun) {
             const end: number = loc?.end?.line ?? line
-            add({ file: rel, ...codeOf(f.path, line, end), type: String(branch.type ?? 'branch'), isNew })
+            const shown = codeOf(f.path, line, end)
+            // New if any line from the block's start to the code shown changed: a V8 block often
+            // starts on an old closing brace before the new code.
+            let touched = isNew
+            for (let n = line; !touched && n <= shown.line; n++) touched = changed?.has(n) ?? false
+            add({ file: rel, ...shown, type: String(branch.type ?? 'branch'), isNew: touched })
           }
         })
       }
@@ -802,7 +813,9 @@ export function problems(p: Paths, r: Result): string[] {
   // Line endings do not count: a CRLF checkout (core.autocrlf) is not out of date.
   const sameText = (a: string, b: string) => a.replace(/\r\n/g, '\n') === b.replace(/\r\n/g, '\n')
   if (!existsSync(md) || !sameText(readFileSync(md, 'utf8'), r.markdown)) {
-    out.push(`${toPosix(join(p.dir, 'matrix.md'))} is out of date: regenerate the matrix and commit it`)
+    // A broken classifications file drops its section from the generated matrix: say why.
+    const why = r.coverage.classificationErrors.length ? ` (the branch classifications file has errors: ${r.coverage.classificationErrors.join(' ')})` : ''
+    out.push(`${toPosix(join(p.dir, 'matrix.md'))} is out of date: regenerate the matrix and commit it${why}`)
   }
   return out
 }
@@ -845,12 +858,12 @@ function main(argv: string[]): number {
   const r = generate(p, base ? { base } : {})
   if (r.toolWarning) console.error(`! ${r.toolWarning}`)
 
+  // Coverage never blocks: these are warnings in both modes, printed before anything can stop.
+  for (const e of r.coverage.classificationErrors) console.error(`! ${e}`)
   if (r.errors.length) {
     for (const e of r.errors) console.error(`✖ ${e}`)
     return 1
   }
-  // Coverage never blocks: these are warnings in both modes.
-  for (const e of r.coverage.classificationErrors) console.error(`! ${e}`)
   const unclassifiedNew = r.coverage.layers.flatMap((l) => l.branches).filter((b) => b.isNew && !b.classification).length
   if (unclassifiedNew) console.error(`! ${unclassifiedNew} new uncovered branches not classified yet (see the live view).`)
   if (r.coverage.obsolete.length) console.error(`! ${r.coverage.obsolete.length} branch classifications match no uncovered branch: remove them.`)
