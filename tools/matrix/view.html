@@ -62,6 +62,22 @@
   .bar i { display: block; height: 100%; background: var(--muted); }
   .note { font-size: 12px; color: var(--muted); margin: 8px 0 0; }
   details summary { cursor: pointer; margin-top: 8px; }
+  .analysis { margin-top: 12px; border-top: 1px solid var(--line); padding-top: 10px; }
+  .analysis h3 { font-size: 14px; margin: 0 0 6px; }
+  .filters { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 13px; margin: 6px 0; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
+  .chip { font-size: 12px; padding: 2px 8px; border-radius: 999px; background: var(--none-bg); color: var(--text); white-space: nowrap; }
+  .chip.unclassified { background: var(--skipped-bg); color: var(--skipped); font-weight: 600; }
+  .chip.obsolete { background: var(--fail-bg); color: var(--fail); }
+  details.layer > summary { font-weight: 600; }
+  details.file { margin-left: 14px; }
+  details.file > summary { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 13px; }
+  .branch { display: grid; grid-template-columns: 52px minmax(0, 1fr); gap: 2px 8px; margin: 6px 0 6px 28px; font-size: 13px; }
+  .branch .ln { color: var(--muted); text-align: right; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
+  .branch code { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; white-space: pre-wrap; word-break: break-word; }
+  .branch .meta { grid-column: 2; display: flex; flex-wrap: wrap; gap: 6px; align-items: baseline; font-size: 12px; color: var(--muted); }
+  .branch .why { grid-column: 2; font-size: 12px; }
+  .tag-new { color: var(--fail); font-weight: 600; }
 </style>
 </head>
 <body>
@@ -156,10 +172,6 @@
       ? `<tr><td>${esc(l.layer)}</td><td>${cellFor(l.global)}</td><td>${cellFor(l.new)}</td></tr>`
       : `<tr><td>${esc(l.layer)}</td><td colspan="2" class="empty">No data: run the tests with coverage</td></tr>`)
     rows.push(`<tr><td><b>Total</b></td><td>${cellFor(sum('global'))}</td><td>${cellFor(sum('new'))}</td></tr>`)
-    const uncovered = layers.flatMap((l) => l.uncovered ?? [])
-    const byFile = {}
-    for (const u of uncovered) (byFile[u.file] ??= []).push(u.line)
-    const items = Object.entries(byFile).map(([f, ls]) => `<li><code>${esc(f)}</code>: lines ${[...new Set(ls)].join(', ')}</li>`).join('')
     $('coverage').innerHTML = `
       <h2>Branch coverage</h2>
       <div class="table"><table>
@@ -167,10 +179,98 @@
         <tbody>${rows.join('')}</tbody>
       </table></div>
       ${cov.baseWarning ? `<p class="note">${esc(cov.baseWarning)}</p>` : ''}
-      ${uncovered.length
-        ? `<details><summary>${uncovered.length} new branches not covered, to classify when closing the story</summary><ul class="list">${items}</ul></details>`
-        : '<p class="note">No new branch left uncovered.</p>'}
+      ${analysis(cov)}
       <p class="note">Informative: it never blocks. With c8 (V8 coverage) every block V8 measures counts as a branch, including the continuation of an await, not only ifs.</p>`
+    restoreOpen()
+  }
+
+  // ---------- Branch analysis ----------
+  const CLASS_LABEL = {
+    'missing-criterion': 'Missing criterion',
+    'dead-or-defensive': 'Dead or defensive',
+    'technical-decision': 'Technical decision',
+    'other-story': "Another story's code",
+  }
+  // Filters and open folds survive every repaint (the view repaints on each test run).
+  const ui = { onlyNew: false, onlyUnclassified: false, open: new Set() }
+  let lastCoverage = null
+
+  function analysis(cov) {
+    lastCoverage = cov
+    const layers = (cov.layers ?? []).filter((l) => l.available)
+    const all = layers.flatMap((l) => l.branches ?? [])
+    if (!all.length && !(cov.obsolete ?? []).length) return '<p class="note">No uncovered branch.</p>'
+    const keep = (b) => (!ui.onlyNew || b.isNew) && (!ui.onlyUnclassified || !b.classification)
+    const byClass = {}
+    for (const b of all) if (b.classification) byClass[b.classification.class] = (byClass[b.classification.class] ?? 0) + 1
+    const unclassified = all.filter((b) => !b.classification).length
+    const chips = [
+      `<span class="chip">${all.length} uncovered</span>`,
+      `<span class="chip ${unclassified ? 'unclassified' : ''}">${unclassified} not classified</span>`,
+      ...Object.entries(byClass).map(([k, n]) => `<span class="chip">${n} ${esc(CLASS_LABEL[k] ?? k)}</span>`),
+      ...((cov.obsolete ?? []).length ? [`<span class="chip obsolete">${cov.obsolete.length} obsolete classifications</span>`] : []),
+    ].join('')
+
+    const layerHtml = layers.map((l) => {
+      const shown = (l.branches ?? []).filter(keep)
+      const byFile = {}
+      for (const b of shown) (byFile[b.file] ??= []).push(b)
+      const files = Object.keys(byFile).sort().map((f) => {
+        const info = (l.files ?? []).find((x) => x.file === f)
+        const count = info?.moduleNotRun ? 'module never loaded' : `${info?.uncovered ?? byFile[f].length}/${info?.total ?? '?'} uncovered`
+        const items = byFile[f].map(branchHtml).join('')
+        return fold(`file:${l.layer}:${f}`, 'file', `${esc(f)} <span class="empty">— ${count}</span>`, items)
+      }).join('')
+      const left = (l.branches ?? []).filter((b) => !b.classification).length
+      const title = `${esc(l.layer)} — ${(l.branches ?? []).length} uncovered · ${left} not classified`
+      return fold(`layer:${l.layer}`, 'layer', title, files || '<p class="empty">Nothing with these filters.</p>')
+    }).join('')
+
+    const obsolete = (cov.obsolete ?? []).length
+      ? fold('obsolete', 'layer', `${cov.obsolete.length} obsolete classifications (covered since, or the code is gone): remove them`,
+        `<ul class="list">${cov.obsolete.map((o) => `<li><code>${esc(o.file)}</code>: <code>${esc(o.code)}</code> · ${esc(CLASS_LABEL[o.class] ?? o.class)}</li>`).join('')}</ul>`)
+      : ''
+    const errors = (cov.classificationErrors ?? []).map((e) => `<div class="warning">${esc(e)}</div>`).join('')
+
+    return `<div class="analysis">
+      <h3>Branch analysis</h3>
+      ${errors}
+      <div class="chips">${chips}</div>
+      <div class="filters">
+        <label><input type="checkbox" data-filter="onlyNew" ${ui.onlyNew ? 'checked' : ''}> Only new code</label>
+        <label><input type="checkbox" data-filter="onlyUnclassified" ${ui.onlyUnclassified ? 'checked' : ''}> Only not classified</label>
+      </div>
+      ${layerHtml}${obsolete}
+      <p class="note">Classify each branch in the project's classifications file (config <code>classifications</code>, default <code>branches.json</code>), keyed by file and the text of the line. The user decides each class.</p>
+    </div>`
+  }
+
+  function branchHtml(b) {
+    const c = b.classification
+    const cls = c ? `<span class="chip">${esc(CLASS_LABEL[c.class] ?? c.class)}</span>` : '<span class="chip unclassified">not classified</span>'
+    const paths = b.paths > 1 ? ` · ${b.paths} paths` : ''
+    const isModule = b.type === 'module'
+    const why = c ? `<div class="why">${esc(c.note)}${c.ref ? ` · <span class="empty">${esc(c.ref)}</span>` : ''}</div>` : ''
+    return `<div class="branch">
+      <span class="ln">${isModule ? '' : `L${b.line}`}</span>
+      <code>${isModule ? '<span class="empty">(whole module: no test loads it)</span>' : esc(b.code)}</code>
+      <div class="meta">${cls}<span>${esc(b.type)}${paths}</span>${b.isNew ? '<span class="tag-new">new</span>' : ''}</div>
+      ${why}
+    </div>`
+  }
+
+  function fold(key, kind, title, body) {
+    return `<details class="${kind}" data-key="${esc(key)}"><summary>${title}</summary>${body}</details>`
+  }
+
+  function restoreOpen() {
+    for (const d of document.querySelectorAll('#coverage details[data-key]')) {
+      if (ui.open.has(d.dataset.key)) d.open = true
+      d.addEventListener('toggle', () => { d.open ? ui.open.add(d.dataset.key) : ui.open.delete(d.dataset.key) })
+    }
+    for (const box of document.querySelectorAll('#coverage input[data-filter]')) {
+      box.addEventListener('change', () => { ui[box.dataset.filter] = box.checked; if (lastCoverage) paintCoverage(lastCoverage) })
+    }
   }
 
   const source = new EventSource('/events')

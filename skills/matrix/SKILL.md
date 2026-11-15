@@ -10,7 +10,7 @@ A general tool that lives in the claude-config repo, `tools/matrix/`. It crosses
 
 - **OpenSpec scenarios**: the living spec in `openspec/specs/`, plus the delta specs of changes in progress;
 - **test results**: Japa (ndjson reporter), Vitest (json reporter) and Playwright (json reporter);
-- **branch coverage**: istanbul `coverage-final.json`, from c8 or `@vitest/coverage-v8`. Coverage is shown globally and for the new code against a base branch.
+- **branch coverage**: istanbul `coverage-final.json`, from c8 or `@vitest/coverage-v8`. Coverage is shown globally and for the new code against a base branch, with a **branch analysis**: every uncovered branch with its code, and its class once the user has decided it.
 
 It produces:
 
@@ -41,7 +41,25 @@ They come from the global CLAUDE.md, section Tests.
   - no scenarios at all;
   - `matrix.md` out of date.
 - Errors in the specs (a scenario without ID, a duplicate ID, a requirement twice in one capability) exit 1 in any mode. A flag without a value exits 2.
-- Coverage never blocks.
+- Coverage never blocks. `--check` only warns about new uncovered branches that are not classified yet, and about classifications that match no uncovered branch any more.
+
+## Branch analysis
+
+The live view lists every uncovered branch per layer and file: line, code, branch type, whether it is new code, and its class. A module no test loads is one finding ("whole module"), not a branch on line 1. Paths of one branch on the same line count as one finding.
+
+Classes are the four of the global CLAUDE.md ("Tancament de la Story"), and they live in a versioned file of the project, `<dir>/branches.json` (config `classifications` to rename it):
+
+```json
+[{ "file": "backend/app/models/user.ts", "code": "return first.slice(0, 2).toUpperCase()",
+   "class": "missing-criterion", "note": "One-word name: no scenario covers it", "ref": "SC-31 proposed" }]
+```
+
+- `class`: `missing-criterion`, `dead-or-defensive`, `technical-decision` or `other-story`.
+- `code` is the trimmed text of the line the view shows, or `*` for a whole module. The key is file + code, not the line number, so a classification follows the code when it moves. Two lines with the same text in one file share it.
+- `ref`: where the user accepted it (the PR comment URL), or the proposed scenario.
+- `matrix.md` gets a "Classified uncovered branches" section from this file only, so it does not churn with coverage.
+
+**Never write a classification on your own.** When closing a story, propose a class for each new uncovered branch in a table and stop. Write to the file only what the user approves; a missing criterion becomes a scenario only after the user approves it too.
 
 ## Arguments
 
@@ -54,7 +72,7 @@ Run the tests if there are no results yet. Then run `matrix.ts --dir <dir>` and 
 - the counts per state;
 - the scenarios that are not green;
 - the orphan tests;
-- the branch coverage, global and new.
+- the branch coverage, global and new, and how many uncovered branches are not classified.
 
 Offer the live view.
 
