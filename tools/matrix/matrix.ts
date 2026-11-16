@@ -15,7 +15,9 @@
 // without a scenario, scenarios without tests, failing or only skipped, missing or stale
 // results, no scenarios at all, or if matrix.md is out of date. Errors in the specs (a scenario
 // without ID, a duplicate ID or requirement) exit 1 in any mode; a flag without a value exits 2.
-// Branch coverage is informative: it never blocks.
+// Branch coverage is informative: it never blocks. Uncovered branches can be classified in a
+// versioned file (config `classifications`, default branches.json): matrix.md lists the
+// classified ones, and the live view shows them all.
 // Why and how: the "Traceability matrix" section of the claude-config README.
 
 import { execFileSync } from 'node:child_process'
@@ -44,14 +46,46 @@ export type Scenario = {
 // branches that start on a line that changes against the base branch (uncommitted changes and
 // untracked files included).
 type Count = { covered: number; total: number }
+
+// Branch analysis: every uncovered branch, with its code and, when the user has decided it, its
+// class (the table of the global CLAUDE.md, "Tancament de la Story"). Classifications live in a
+// versioned file of the project (config `classifications`, default branches.json), keyed by file
+// and the trimmed text of the line, so they survive code moving up or down.
+export const CLASSES = ['missing-criterion', 'dead-or-defensive', 'technical-decision', 'other-story'] as const
+export type BranchClass = (typeof CLASSES)[number]
+export type Classification = { file: string; code: string; class: BranchClass; note: string; ref?: string }
+export type UncoveredBranch = {
+  file: string
+  line: number
+  // istanbul branch type (if, cond-expr, binary-expr, default-arg, switch…); "module" when no
+  // test ever loads the file, which c8 reports as one branch on line 1.
+  type: string
+  // The first line of the branch's range with something on it (a V8 block often starts on the
+  // closing brace of the previous one), and how many uncovered paths share it.
+  code: string
+  paths: number
+  isNew: boolean
+  classification?: Omit<Classification, 'file' | 'code'>
+}
+export type FileCoverage = { file: string; total: number; uncovered: number; moduleNotRun: boolean }
 export type LayerCoverage = {
   layer: string
   available: boolean
   global: Count
   new: Count
+  // New-code branches only, as before; `branches` has them all.
   uncovered: { file: string; line: number }[]
+  files: FileCoverage[]
+  branches: UncoveredBranch[]
 }
-export type Coverage = { base: string | null; baseWarning?: string; layers: LayerCoverage[] }
+export type Coverage = {
+  base: string | null
+  baseWarning?: string
+  layers: LayerCoverage[]
+  // Entries of the classifications file that match no uncovered branch: covered since, or gone.
+  obsolete: Classification[]
+  classificationErrors: string[]
+}
 
 export type Result = {
   scenarios: Scenario[]
@@ -82,6 +116,8 @@ type Config = {
   results: ResultSource[]
   baseBranch?: string
   coverage?: { layer: string; file: string }[]
+  // File with the branch classifications, relative to --dir. Default: branches.json.
+  classifications?: string
 }
 type SpecScenario = Omit<Scenario, 'state' | 'tests'>
 export type Paths = { root: string; dir: string }
@@ -348,7 +384,14 @@ function readPlaywright(text: string, source: ResultSource, root: string, errors
 
 const cell = (s: string) => s.replace(/\|/g, '\\|')
 
-function markdown(scenarios: Scenario[], orphans: Test[]): string {
+const CLASS_LABELS: Record<BranchClass, string> = {
+  'missing-criterion': 'Missing criterion',
+  'dead-or-defensive': 'Dead or defensive code',
+  'technical-decision': 'Technical decision',
+  'other-story': "Another story's code",
+}
+
+function markdown(scenarios: Scenario[], orphans: Test[], classifications: Classification[]): string {
   const l: string[] = [
     '# Traceability matrix',
     '',
@@ -369,6 +412,22 @@ function markdown(scenarios: Scenario[], orphans: Test[]): string {
   l.push('', '## Tests without a scenario', '')
   if (orphans.length) for (const t of orphans) l.push(`- ${t.title} (${t.level}, \`${t.file}\`)`)
   else l.push('None.')
+  // Only the decisions, taken from the versioned classifications file: no coverage figures, so
+  // the matrix does not churn with every run. The live view shows what is still unclassified.
+  if (classifications.length) {
+    l.push('', '## Classified uncovered branches', '', '| File | Code | Class | Why | Ref |', '|---|---|---|---|---|')
+    // Plain code-unit order, not localeCompare: matrix.md must come out the same on every machine.
+    const cmp = (x: string, y: string) => (x < y ? -1 : x > y ? 1 : 0)
+    const sorted = [...classifications].sort((a, b) => cmp(a.file, b.file) || cmp(a.code, b.code))
+    // A line break in a hand-written note would break the table row.
+    const flat = (s: string) => cell(s.replace(/\s*\r?\n\s*/g, ' '))
+    for (const c of sorted) {
+      // Code with backticks needs a longer fence: `` a `b` ``.
+      const fence = c.code.includes('`') ? '``' : '`'
+      const code = c.code === MODULE_NOT_RUN ? '_(whole module)_' : `${fence} ${cell(c.code)} ${fence}`
+      l.push(`| \`${c.file}\` | ${code} | ${CLASS_LABELS[c.class]} | ${flat(c.note)} | ${c.ref ? flat(c.ref) : '—'} |`)
+    }
+  }
   return l.join('\n') + '\n'
 }
 
@@ -441,7 +500,63 @@ function changedLines(root: string, base: string): Map<string, Set<number>> {
   return changes
 }
 
-function coverage(root: string, config: Config, forcedBase?: string): Coverage {
+// The classifications file. A missing file is no classification at all; a malformed one is
+// reported (it never blocks: coverage is informative) and ignored.
+function readClassifications(p: Paths, config: Config, errors: string[]): Classification[] {
+  const name = config.classifications ?? 'branches.json'
+  const path = file(p, name)
+  if (!existsSync(path)) return []
+  let raw: unknown
+  try {
+    raw = JSON.parse(readFileSync(path, 'utf8'))
+  } catch {
+    errors.push(`${name} is not valid JSON: branch classifications ignored.`)
+    return []
+  }
+  if (!Array.isArray(raw)) {
+    errors.push(`${name} must be a JSON array: branch classifications ignored.`)
+    return []
+  }
+  const out: Classification[] = []
+  raw.forEach((e: any, i) => {
+    if (typeof e?.file !== 'string' || typeof e?.code !== 'string' || typeof e?.note !== 'string' || !CLASSES.includes(e?.class)) {
+      errors.push(`${name}, entry ${i + 1}: needs file, code, note and a class among ${CLASSES.join(', ')}.`)
+      return
+    }
+    out.push({ file: toPosix(e.file), code: e.code.trim(), class: e.class, note: e.note, ...(typeof e.ref === 'string' ? { ref: e.ref } : {}) })
+  })
+  return out
+}
+
+// Key of a branch for its classification: the file and the trimmed text of its line; "*" for a
+// module no test loads.
+const branchKey = (file: string, code: string) => `${file}\0${code}`
+export const MODULE_NOT_RUN = '*'
+
+function coverage(p: Paths, config: Config, forcedBase?: string): Coverage {
+  const root = p.root
+  const classificationErrors: string[] = []
+  const classifications = readClassifications(p, config, classificationErrors)
+  const byKey = new Map(classifications.map((c) => [branchKey(c.file, c.code), c]))
+  const used = new Set<string>()
+  const sources = new Map<string, string[]>()
+  // First line of [start, end] with something besides braces and punctuation on it.
+  const codeOf = (abs: string, start: number, end: number): { line: number; code: string } => {
+    if (!sources.has(abs)) {
+      try {
+        sources.set(abs, readFileSync(abs, 'utf8').split(/\r?\n/))
+      } catch {
+        sources.set(abs, [])
+      }
+    }
+    const lines = sources.get(abs)!
+    const last = Math.min(Math.max(end, start), start + 50)
+    for (let n = start; n <= last; n++) {
+      const text = (lines[n - 1] ?? '').trim()
+      if (text && !/^[\s{}()[\];,]*$/.test(text)) return { line: n, code: text }
+    }
+    return { line: start, code: (lines[start - 1] ?? '').trim() }
+  }
   const base = forcedBase ?? config.baseBranch ?? null
   let changes: Map<string, Set<number>> | null = null
   let baseWarning: string | undefined
@@ -454,7 +569,15 @@ function coverage(root: string, config: Config, forcedBase?: string): Coverage {
   }
 
   const layers = (config.coverage ?? []).map(({ layer, file: path }): LayerCoverage => {
-    const empty: LayerCoverage = { layer, available: false, global: { covered: 0, total: 0 }, new: { covered: 0, total: 0 }, uncovered: [] }
+    const empty: LayerCoverage = {
+      layer,
+      available: false,
+      global: { covered: 0, total: 0 },
+      new: { covered: 0, total: 0 },
+      uncovered: [],
+      files: [],
+      branches: [],
+    }
     const report = join(root, path)
     if (!existsSync(report)) return empty
     let data: Record<string, any>
@@ -464,29 +587,77 @@ function coverage(root: string, config: Config, forcedBase?: string): Coverage {
       return empty
     }
     const c: LayerCoverage = { ...empty, available: true }
+    const classify = (b: Omit<UncoveredBranch, 'classification'>): UncoveredBranch => {
+      const key = branchKey(b.file, b.type === 'module' ? MODULE_NOT_RUN : b.code)
+      const found = byKey.get(key)
+      if (!found) return b
+      used.add(key)
+      const { file: _f, code: _c, ...classification } = found
+      return { ...b, classification }
+    }
     for (const f of Object.values(data)) {
       const rel = toPosix(relative(root, f.path))
       const changed = changes?.get(rel)
+      // A file no test loads: every statement and every function at 0. c8 reports it as one branch
+      // on line 1; it is one finding (the whole module), not a branch of line 1. Requiring the
+      // functions too keeps a loaded file whose only function is never called out of it.
+      const statements = Object.values<number>(f.s ?? {})
+      const functions = Object.values<number>(f.f ?? {})
+      const moduleNotRun = statements.length > 0 && statements.every((n) => n === 0) && functions.every((n) => n === 0)
+      const fc: FileCoverage = { file: rel, total: 0, uncovered: 0, moduleNotRun }
+      // Paths of one branch that land on the same line and code are one finding.
+      const own = new Map<string, UncoveredBranch>()
+      const add = (b: Omit<UncoveredBranch, 'classification' | 'paths'>) => {
+        const k = `${b.line}\0${b.code}`
+        const prev = own.get(k)
+        if (prev) {
+          prev.paths++
+          prev.isNew ||= b.isNew
+        } else own.set(k, classify({ ...b, paths: 1 }))
+      }
       for (const [id, branch] of Object.entries<any>(f.branchMap ?? {})) {
         const counts: number[] = f.b?.[id] ?? []
         ;(branch.locations ?? []).forEach((loc: any, i: number) => {
           const covered = (counts[i] ?? 0) > 0
           c.global.total++
+          fc.total++
           if (covered) c.global.covered++
+          else fc.uncovered++
           const line: number = loc?.start?.line ?? branch.loc?.start?.line ?? branch.line
-          if (changed?.has(line)) {
+          const isNew = changed?.has(line) ?? false
+          if (isNew) {
             c.new.total++
             if (covered) c.new.covered++
             else c.uncovered.push({ file: rel, line })
           }
+          if (!covered && !moduleNotRun) {
+            const end: number = loc?.end?.line ?? line
+            const shown = codeOf(f.path, line, end)
+            // New if any line from the block's start to the code shown changed: a V8 block often
+            // starts on an old closing brace before the new code.
+            let touched = isNew
+            for (let n = line; !touched && n <= shown.line; n++) touched = changed?.has(n) ?? false
+            add({ file: rel, ...shown, type: String(branch.type ?? 'branch'), isNew: touched })
+          }
         })
       }
+      if (moduleNotRun && fc.uncovered) {
+        const isNew = changed ? changed.size > 0 : false
+        add({ file: rel, line: 1, type: 'module', code: 'no test loads this module', isNew })
+      }
+      if (fc.total) c.files.push(fc)
+      c.branches.push(...own.values())
     }
     c.uncovered.sort((a, b) => a.file.localeCompare(b.file) || a.line - b.line)
+    c.files.sort((a, b) => a.file.localeCompare(b.file))
+    c.branches.sort((a, b) => a.file.localeCompare(b.file) || a.line - b.line)
     return c
   })
 
-  return { base: changes ? base : null, ...(baseWarning ? { baseWarning } : {}), layers }
+  // Only when every layer had data: otherwise a missing report would make every entry "obsolete".
+  const complete = layers.length > 0 && layers.every((l) => l.available)
+  const obsolete = complete ? classifications.filter((cl) => !used.has(branchKey(cl.file, cl.code))) : []
+  return { base: changes ? base : null, ...(baseWarning ? { baseWarning } : {}), layers, obsolete, classificationErrors }
 }
 
 // ---------- API ----------
@@ -544,6 +715,8 @@ export function generate(p: Paths, options: { base?: string } = {}): Result {
   })
 
   const toolWarning = toolCheckoutWarning()
+  const cov = coverage(p, config, options.base)
+  const classifications = readClassifications(p, config, [])
   return {
     scenarios,
     orphans,
@@ -551,8 +724,8 @@ export function generate(p: Paths, options: { base?: string } = {}): Result {
     staleResults,
     errors,
     ...(toolWarning ? { toolWarning } : {}),
-    coverage: coverage(p.root, config, options.base),
-    markdown: markdown(scenarios, orphans),
+    coverage: cov,
+    markdown: markdown(scenarios, orphans, classifications),
   }
 }
 
@@ -640,7 +813,9 @@ export function problems(p: Paths, r: Result): string[] {
   // Line endings do not count: a CRLF checkout (core.autocrlf) is not out of date.
   const sameText = (a: string, b: string) => a.replace(/\r\n/g, '\n') === b.replace(/\r\n/g, '\n')
   if (!existsSync(md) || !sameText(readFileSync(md, 'utf8'), r.markdown)) {
-    out.push(`${toPosix(join(p.dir, 'matrix.md'))} is out of date: regenerate the matrix and commit it`)
+    // A broken classifications file drops its section from the generated matrix: say why.
+    const why = r.coverage.classificationErrors.length ? ` (the branch classifications file has errors: ${r.coverage.classificationErrors.join(' ')})` : ''
+    out.push(`${toPosix(join(p.dir, 'matrix.md'))} is out of date: regenerate the matrix and commit it${why}`)
   }
   return out
 }
@@ -683,10 +858,15 @@ function main(argv: string[]): number {
   const r = generate(p, base ? { base } : {})
   if (r.toolWarning) console.error(`! ${r.toolWarning}`)
 
+  // Coverage never blocks: these are warnings in both modes, printed before anything can stop.
+  for (const e of r.coverage.classificationErrors) console.error(`! ${e}`)
   if (r.errors.length) {
     for (const e of r.errors) console.error(`✖ ${e}`)
     return 1
   }
+  const unclassifiedNew = r.coverage.layers.flatMap((l) => l.branches).filter((b) => b.isNew && !b.classification).length
+  if (unclassifiedNew) console.error(`! ${unclassifiedNew} new uncovered branches not classified yet (see the live view).`)
+  if (r.coverage.obsolete.length) console.error(`! ${r.coverage.obsolete.length} branch classifications match no uncovered branch: remove them.`)
   if (argv.includes('--check')) {
     const found = problems(p, r)
     for (const x of found) console.error(`✖ ${x}`)
@@ -704,7 +884,13 @@ function main(argv: string[]): number {
   const pct = (c: Count) => (c.total ? `${c.covered}/${c.total} (${Math.round((100 * c.covered) / c.total)}%)` : 'no branches')
   for (const c of r.coverage.layers) {
     if (!c.available) console.log(`  · Branches ${c.layer}: no coverage data.`)
-    else console.log(`  · Branches ${c.layer}: global ${pct(c.global)}; new code vs ${r.coverage.base ?? '—'}: ${pct(c.new)}.`)
+    else {
+      const left = c.branches.filter((b) => !b.classification).length
+      console.log(
+        `  · Branches ${c.layer}: global ${pct(c.global)}; new code vs ${r.coverage.base ?? '—'}: ${pct(c.new)}; ` +
+          `${c.branches.length} uncovered findings, ${left} not classified.`,
+      )
+    }
   }
   if (r.coverage.baseWarning) console.log(`  · ${r.coverage.baseWarning}`)
   return 0

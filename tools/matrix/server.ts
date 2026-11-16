@@ -91,7 +91,11 @@ export async function start({ root: requestedRoot, dir, port }: Paths & { port: 
   for (const [d, names] of resultFiles) watchDir(d, false, (name) => names.has(name))
   // Coverage folders are deleted and recreated on every run, and fs.watch does not survive
   // that: coverage reports are polled instead.
-  const polled: string[] = (config.coverage ?? []).map((c: { file: string }) => join(root, c.file))
+  // The branch classifications file too: it may not exist yet, and watchFile copes with that.
+  const polled: string[] = [
+    ...(config.coverage ?? []).map((c: { file: string }) => join(root, c.file)),
+    join(resolve(root, dir), config.classifications ?? 'branches.json'),
+  ]
   for (const f of polled) watchFile(f, { interval: 1000 }, onChange)
 
   const server = createServer((req, res) => {
