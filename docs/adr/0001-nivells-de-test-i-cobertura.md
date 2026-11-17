@@ -1,12 +1,12 @@
 ---
-status: proposed
+status: accepted
 date: 2026-11-17
 decision-makers: abalbastrem
 ---
 
 # 0001 — Nivells de test per Story i cobertura de branques com a detector
 
-La decisió es va prendre a flowsync el 2026-11-13 (PR #26, que es va tancar perquè les regles passessin al flux global) i ara regeix tots els projectes a través de la secció «Tests» del `CLAUDE.md` d'aquest repo. Aquest ADR en deixa el perquè. Passarà a `accepted` quan el propietari l'aprovi al PR amb la seva marca (vegeu «Cap test sense criteri» al `CLAUDE.md`).
+La decisió es va prendre a flowsync el 2026-11-13 (PR #26, que es va tancar perquè les regles passessin al flux global) i ara regeix tots els projectes a través de la secció «Tests» del `CLAUDE.md` d'aquest repo. Aquest ADR en deixa el perquè. L'ha acceptat el propietari en fusionar el #15 i amb la seva marca al PR que hi porta les correccions de la revisió.
 
 ## Context i problema
 
