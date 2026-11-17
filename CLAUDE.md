@@ -39,6 +39,10 @@ Tot test penja d'un escenari de la Story, o d'una decisió tècnica que jo hagi 
 - **Traça:** el títol del test comença per l'identificador de l'escenari que prova (`SC-7 · …`, o `SC-7 SC-8 · …` si en prova més d'un). A OpenSpec, cada escenari porta l'ID al títol, `#### Scenario: [SC-n] …`, únic a tot el repo; un escenari nou agafa el següent número lliure i cap número no es reutilitza. Un test unitari d'una decisió tècnica enllaça on la vaig acceptar.
 - **Matriu de traçabilitat:** si el projecte en té, l'eina de `tools/matrix/` d'aquest repo creua escenaris, tests i cobertura (vegeu el README i la skill `/matrix`). Es recorre de capability a requisit, a escenari i a test, mai al revés.
 - **Una decisió tècnica és acceptada** quan hi ha un comentari meu al PR o queda escrita al disseny de la Story (a OpenSpec, el `design.md`) i jo l'he revisat. Que l'agent l'escrigui a la descripció del PR no compta.
+- **Com decideixo al PR, sense escriure gaire.** L'agent proposa i jo només aprovo o rebutjo:
+  - Una decisió compta quan **jo** escric un comentari que comença per `Aprobado:` o `Rechazado:`, seguit del que aprovo o rebutjo. És l'única marca que val: una aprovació dita al xat no compta fins que no és al PR.
+  - L'agent **mai** no escriu un comentari que comenci per `Aprobado:` o `Rechazado:`, ni marca caselles de decisió, ni aprova PR. Mentre comparteixi el meu compte de GitHub, els seus comentaris comencen per `🤖 Claude:`, perquè es distingeixin dels meus.
+  - L'agent proposa de manera que n'hi hagi prou amb aquesta línia: les opcions numerades, cadascuna amb el que s'aprovaria. Quan aprovo, l'agent apunta l'URL del meu comentari on calgui (per exemple, el `ref` de `branches.json`).
 - **Un test de regressió** penja del criteri que el bug incomplia. Si no n'hi ha cap, és un criteri que falta.
 - Si mentre escrius els tests apareix una branca o un cas que cap criteri no recull, **atura't i porta-me'l**. No inventis l'escenari ni escriguis el test pel teu compte: decidir-ho és decisió de producte. Fins que respongui, aquella Subtask queda bloquejada; si n'hi ha d'altres que no en depenen, pots continuar amb aquestes.
 
@@ -55,9 +59,11 @@ La mètrica és la **cobertura de branques del codi nou de la Story** (el diff d
 | Què és la branca | Què es fa |
 |---|---|
 | **Un criteri que falta:** comportament visible que importa a algú | Proposa l'escenari. Quan l'aprovo, va a la Story i després es fa el test |
-| **Codi mort o defensiu:** no s'hi pot arribar, perquè una altra capa ja ho impedeix | Proposa esborrar-lo i ho decideixo jo. Si es conserva, s'exclou de la cobertura explicant per què al mateix codi |
+| **Codi mort o defensiu:** no s'hi pot arribar, perquè una altra capa ja ho impedeix | Proposa esborrar-lo i ho decideixo jo. Si es conserva, el motiu va a la classificació (vegeu més avall), no a comentaris al codi |
 | **Decisió tècnica pròpia:** no la veu ningú, però el sistema la pren | Test unitari, un cop acceptada la decisió |
 | **Codi d'una altra Story que s'ha avançat** | Proposa treure'l fins que arribi la seva Story, i ho decideixo jo |
+
+Si el projecte té matriu de traçabilitat, la classificació viu al fitxer de classificacions de la matriu (`branches.json`), versionat i amb el motiu de cada branca, i la vista viva la mostra al costat del codi. És el lloc únic de la decisió: res d'exclusions ni de comentaris al codi per a l'eina de cobertura. L'agent hi escriu només el que he aprovat.
 
 La cobertura no veu l'altre forat: una branca coberta per un test que no penja de cap criteri. Aquest el busca l'agent `adversarial-reviewer` a cada PR, però és un revisor LLM: redueix el risc, no el garanteix.
 
