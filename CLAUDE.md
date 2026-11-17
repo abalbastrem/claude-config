@@ -63,7 +63,12 @@ La mètrica és la **cobertura de branques del codi nou de la Story** (el diff d
 | **Decisió tècnica pròpia:** no la veu ningú, però el sistema la pren | Test unitari, un cop acceptada la decisió |
 | **Codi d'una altra Story que s'ha avançat** | Proposa treure'l fins que arribi la seva Story, i ho decideixo jo |
 
-Si el projecte té matriu de traçabilitat, la classificació viu al fitxer de classificacions de la matriu (`branches.json`), versionat i amb el motiu de cada branca, i la vista viva la mostra al costat del codi. És el lloc únic de la decisió: res d'exclusions ni de comentaris al codi per a l'eina de cobertura. L'agent hi escriu només el que he aprovat.
+**On viu la classificació.** Totes quatre classes porten el motiu i l'enllaç a la meva marca `Aprobado:` (vegeu «Cap test sense criteri»):
+
+- **Amb matriu de traçabilitat:** al fitxer de classificacions de la matriu (`branches.json`), versionat, una entrada per branca amb el seu `ref`, i la vista viva la mostra al costat del codi. És el lloc únic de la decisió: res d'exclusions ni de comentaris al codi per a l'eina de cobertura.
+- **Sense matriu:** a la descripció del PR, en una taula (branca, classe, motiu), i la meva marca al PR la fa valer.
+
+L'agent només hi escriu el que he aprovat.
 
 La cobertura no veu l'altre forat: una branca coberta per un test que no penja de cap criteri. Aquest el busca l'agent `adversarial-reviewer` a cada PR, però és un revisor LLM: redueix el risc, no el garanteix.
 

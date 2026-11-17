@@ -61,7 +61,7 @@ Classes are the four of the global CLAUDE.md ("Tancament de la Story"), and they
 - `ref`: where the user accepted it (the PR comment URL), or the proposed scenario.
 - `matrix.md` gets a "Classified uncovered branches" section from this file only, so it does not churn with coverage.
 
-**Never write a classification on your own.** When closing a story, propose a class for each new uncovered branch in a table and stop. Write to the file only what the user approves; a missing criterion becomes a scenario only after the user approves it too.
+**Never write a classification on your own.** When closing a story, propose a class for each new uncovered branch in a table and stop. Write to the file only what the user approves with their mark on the PR (`Aprobado:`, defined in the global CLAUDE.md, section «Cap test sense criteri»), and set each entry's `ref` to that comment: so open the PR first, propose there, and commit the file after the approval. A missing criterion becomes a scenario only after the user approves it too.
 
 ## Arguments
 
