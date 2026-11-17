@@ -20,7 +20,7 @@ PRD → Epics → Stories amb Given/When/Then → Subtasks → implementació am
 
 ## Tests
 
-TDD diu quan escriure el test, no a quin nivell. Cada criteri es prova per defecte des de fora, i només es baixa de nivell quan compensa. Cada nivell té un paper:
+TDD diu quan escriure el test, no a quin nivell. Cada criteri es prova per defecte des de fora, i només es baixa de nivell quan compensa. Cada nivell té un paper (el perquè, amb les alternatives descartades, és a l'[ADR 0001](docs/adr/0001-nivells-de-test-i-cobertura.md)):
 
 | Nivell | Paper | Quants |
 |---|---|---|
