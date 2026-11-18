@@ -12,9 +12,17 @@ Claude Code llegeix `~/.claude/CLAUDE.md` a tots els projectes. Aquest fitxer no
 @~/projects/software/claude-config/CLAUDE.md
 ```
 
-S'importa en lloc de fer un enllaç simbòlic perquè a Windows els enllaços demanen el mode de desenvolupador o permisos d'administrador.
-
 Per comprovar que s'aplica, executa `/memory` dins de Claude Code.
+
+La resta (agents, skills i la barra d'estat) l'enllaça `install.sh`. Claude Code només llegeix aquestes peces de `~/.claude/`, i amb un enllaç simbòlic llegeix el fitxer del repo tal com està, en lloc d'una còpia que es pot desfasar:
+
+```bash
+./install.sh
+```
+
+Crea `~/.claude/agents`, `~/.claude/skills/matrix`, `~/.claude/skills/prompt-log` i `~/.claude/statusline-command.sh` com a enllaços cap a aquest repo. És idempotent: es pot tornar a executar després de clonar o quan s'hi afegeixi un enllaç. El que ja hi hagués i no fos l'enllaç bo es mou a `~/.claude/backup-<data>/`, mai no s'esborra.
+
+**A Windows** cal el mode de desenvolupador (*Configuració → Sistema → Per a desenvolupadors*), que deixa crear enllaços simbòlics sense permisos d'administrador, i executar-lo des de Git Bash. Sense aquest mode, el `ln -s` de Git Bash fa una còpia en silenci. Per això `install.sh` fa servir `MSYS=winsymlinks:nativestrict`, i s'atura si no pot crear un enllaç de veritat. Si també vols que `ln -s` es comporti així fora de l'script, posa `export MSYS=winsymlinks:nativestrict` al teu `~/.bashrc`.
 
 ## Hooks
 
@@ -22,7 +30,7 @@ Per comprovar que s'aplica, executa `/memory` dins de Claude Code.
 - `hooks/prompt-log.sh`: mentre existeix `.claude/prompt-log.active` al projecte, afegeix cada prompt a `prompts.md` (número, model, eina i el prompt literal). Si el fitxer ja fa servir les etiquetes `**Modelo:**` / `**Herramienta:**` d'una plantilla en castellà, com la del curs AI4Devs, les manté; si no, escriu `**Model:**` / `**Tool:**`. El fa servir la skill `prompt-log`. Necessita `jq`.
 - `hooks/settings-hooks.json`: la definició dels hooks. Claude Code no pot importar-la, així que cal copiar-ne el bloc `hooks` a `~/.claude/settings.json`.
 
-Els hooks i el `CLAUDE.md` s'executen des d'aquesta carpeta tal com està, no des d'una còpia: si canvies de branca, canvia el que fa Claude a tots els projectes. Deixa la carpeta a `main` quan no hi estiguis treballant.
+Els hooks, el `CLAUDE.md` i tot el que enllaça `install.sh` s'executen des d'aquesta carpeta tal com està, no des d'una còpia: si canvies de branca, canvia el que fa Claude a tots els projectes. Deixa la carpeta a `main` quan no hi estiguis treballant.
 
 Els sons són a `hooks/sounds/` i vénen de Freesound. Per canviar-los, posa-hi un `.wav` (convertit amb `ffmpeg` si és un altre format) i canvia el nom de fitxer a `hooks/notify-sound.sh`. El canvi s'aplica de seguida, sense reiniciar.
 
@@ -89,7 +97,7 @@ Va a `.github/workflows/matrix.yml` del projecte.
 
 ## Agents
 
-- `agents/adversarial-reviewer.md`: revisa un PR per trencar-lo, no per aprovar-lo. A més de bugs i seguretat, comprova les regles de tests del `CLAUDE.md`: que cada test pengi d'un criteri, el nivell de cada test, l'E2E i la classificació de la cobertura. Claude Code només llegeix agents d'usuari de `~/.claude/agents/`, així que cal copiar-hi el fitxer. Si un projecte té un agent amb el mateix nom a `.claude/agents/`, mana el del projecte.
+- `agents/adversarial-reviewer.md`: revisa un PR per trencar-lo, no per aprovar-lo. A més de bugs i seguretat, comprova les regles de tests del `CLAUDE.md`: que cada test pengi d'un criteri, el nivell de cada test, l'E2E i la classificació de la cobertura. Claude Code només llegeix agents d'usuari de `~/.claude/agents/`, que `install.sh` enllaça a `agents/`. Si un projecte té un agent amb el mateix nom a `.claude/agents/`, mana el del projecte.
 
 ### El revisor adversarial al CI
 
@@ -128,4 +136,4 @@ I el secret `CLAUDE_CODE_OAUTH_TOKEN` (de `claude setup-token`) a *Settings → 
 
 ## Skills
 
-- `skills/prompt-log/`: activa i desactiva el registre de prompts (`/prompt-log on|off|status`). Claude Code només llegeix skills de `~/.claude/skills/`, així que cal copiar-hi la carpeta. Afegeix `.claude/prompt-log.active` al `.gitignore` de cada projecte on la facis servir.
+- `skills/prompt-log/`: activa i desactiva el registre de prompts (`/prompt-log on|off|status`). Claude Code només llegeix skills de `~/.claude/skills/`, on `install.sh` l'enllaça. Afegeix `.claude/prompt-log.active` al `.gitignore` de cada projecte on la facis servir.
