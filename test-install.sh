@@ -22,7 +22,8 @@ check() { if eval "$2"; then pass "$1"; else fail "$1"; fi; }
 fresh_home() { mktemp -d; }
 # Physical path of a file or folder, without readlink -f (missing on older macOS).
 real() { if [ -d "$1" ]; then (cd -P "$1" && pwd -P); else echo "$(cd -P "$(dirname "$1")" && pwd -P)/$(basename "$1")"; fi; }
-links_to() { [ -L "$1" ] && [ "$(real "$(readlink "$1")")" = "$(real "$2")" ]; }
+target() { local t; t=$(readlink "$1"); case "$t" in /* | [A-Za-z]:*) echo "$t" ;; *) echo "$(dirname "$1")/$t" ;; esac; }
+links_to() { [ -L "$1" ] && [ "$(real "$(target "$1")")" = "$(real "$2")" ]; }
 
 echo "Fresh install"
 h=$(fresh_home)

@@ -19,8 +19,23 @@ case "$(uname -s)" in
 esac
 
 # Physical path of a file or folder, without readlink -f (missing on older macOS).
+# Prints nothing if the path doesn't exist, so a broken link never matches.
 real() {
-  if [ -d "$1" ]; then (cd -P "$1" && pwd -P); else echo "$(cd -P "$(dirname "$1")" && pwd -P)/$(basename "$1")"; fi
+  if [ -d "$1" ]; then
+    (cd -P "$1" 2>/dev/null && pwd -P)
+  elif [ -e "$1" ]; then
+    echo "$(cd -P "$(dirname "$1")" 2>/dev/null && pwd -P)/$(basename "$1")"
+  fi
+}
+
+# Where a link points, with a relative target taken from the link's own folder.
+target() {
+  local t
+  t=$(readlink "$1")
+  case "$t" in
+    /* | [A-Za-z]:*) echo "$t" ;;
+    *) echo "$(dirname "$1")/$t" ;;
+  esac
 }
 
 repo=$(cd -P "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)
@@ -67,7 +82,7 @@ for entry in "${links[@]}"; do
   name=${entry%%:*}
   dest="$claude/$name"
   src="$repo/${entry#*:}"
-  if [ -L "$dest" ] && [ "$(real "$(readlink "$dest")")" = "$(real "$src")" ]; then
+  if [ -L "$dest" ] && [ -n "$(real "$(target "$dest")")" ] && [ "$(real "$(target "$dest")")" = "$(real "$src")" ]; then
     echo "ok       $name"
     continue
   fi
