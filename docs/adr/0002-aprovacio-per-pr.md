@@ -43,7 +43,7 @@ L'opció 3.
 
 - **Les decisions** (escenari nou, decisió tècnica, esborrar o ajornar codi) es prenen al xat. L'agent les deixa escrites a la Story, al disseny o a la descripció del PR, i les llista a la secció «Decisions preses» del PR. L'`adversarial-reviewer` assenyala les que el diff introdueix i no hi surten.
 - **La classificació de les branques no cobertes la fa l'agent.** El motiu va a `note`, i el `ref` de `branches.json` passa a ser opcional: un enllaç a la discussió, si n'hi ha hagut. El que se'n derivi continua passant per la persona.
-- **L'`Aprobado:` és un per PR, i parla només de les troballes de l'`adversarial-reviewer`:** quines queden i per què no impedeixen el merge. No aprova les decisions, que ja hi han passat. L'escriu el bot aprovador, una GitHub App amb permís només per comentar PR, sense permís de *Contents*: no pot fer push ni merge. L'script que el publica té una regla `ask` al harness, i la clau privada de l'App té una regla `deny` de lectura.
+- **L'`Aprobado:` és un per PR, i parla només de les troballes de l'`adversarial-reviewer`:** quines queden i per què no impedeixen el merge. No aprova les decisions, que ja hi han passat. L'escriu el bot aprovador, una GitHub App amb permís de *Pull requests* i sense permís de *Contents*: no pot fer push ni merge. El permís de *Pull requests* també li permetria aprovar amb el botó *Approve*; no ho fa perquè el seu script només publica comentaris. L'script que el publica té una regla `ask` al harness, i la clau privada de l'App té una regla `deny` de lectura.
 - **El merge el fa sempre la persona.**
 
 ### Conseqüències
@@ -51,7 +51,8 @@ L'opció 3.
 - **Bo:** la persona decideix al xat i no ha d'escriure marques. El tancament d'una Story passa de diverses marques a cap, i el PR a una.
 - **Bo:** l'autor de l'`Aprobado:` és el bot, no la persona: un comentari de l'agent amb el compte de la persona ja no es pot confondre amb una aprovació.
 - **Bo:** que el bot no pugui fer el merge no depèn de cap instrucció: GitHub no el deixa fer sense permís de *Contents*.
-- **Dolent:** una decisió ja no porta cap rastre verificable que demostri que va passar per la persona. Només hi ha la secció «Decisions preses», que redacta l'agent. El risc l'assumeix la persona, que llegeix el PR abans del merge.
+- **Dolent:** una decisió ja no porta cap rastre verificable que demostri que va passar per la persona. Només hi ha la secció «Decisions preses», que redacta l'agent: demostra que una decisió consta, no que s'hagi aprovat. Això afebleix el control de «cap escenari nou sense la meva aprovació», que passa a dependre de la persona, que llegeix el PR abans del merge. És un risc assumit.
+- **Dolent:** el bot podria aprovar un PR amb el botó *Approve*, perquè el permís de *Pull requests* ho permet. Només ho impedeix el seu script. Avui no té cap efecte, perquè cap ruleset no exigeix aprovacions.
 - **Dolent:** una classificació de branca feta per l'agent pot tapar una branca sense test sense que ningú la miri. La mitiga l'`adversarial-reviewer`, que és un LLM consultiu.
 - **Dolent:** cal crear i mantenir una GitHub App i el seu script. Fins que existeixin, no hi ha cap `Aprobado:` possible.
 - **Dolent:** l'agent continua tenint el token de la persona, per fer push i obrir PR. Les regles `deny` sobre `gh pr merge` i les branques protegides tapen els camins habituals, però un script fet a mida contra l'API se les podria saltar.
