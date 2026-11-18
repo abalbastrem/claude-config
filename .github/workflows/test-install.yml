@@ -1,0 +1,34 @@
+name: Test install.sh
+
+# Runs test-install.sh, which exercises install.sh in a throwaway HOME and a
+# throwaway copy of the repo, on Linux and on Windows (Git Bash). Deterministic
+# and cheap: no model, no secrets.
+
+on:
+  pull_request:
+    paths:
+      - install.sh
+      - test-install.sh
+      - agents/**
+      - skills/**
+      - statusline/**
+      - .github/workflows/test-install.yml
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Run test-install.sh
+        shell: bash
+        run: ./test-install.sh
