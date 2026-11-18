@@ -26,11 +26,12 @@ Abans de tocar res, comprova que hi són tots els fitxers del repo. També compr
 
 L'enllaç de la barra d'estat no l'activa per si sol: `~/.claude/settings.json` ha de tenir `"statusLine": { "type": "command", "command": "bash ~/.claude/statusline-command.sh" }`.
 
-**A macOS i Linux** funciona tal com està.
+**Per sistema:**
 
-`./test-install.sh` el prova en un `HOME` temporal i amb una còpia temporal del repo. No toca mai `~/.claude` ni el repo de debò.
+- **macOS i Linux:** funciona tal com està.
+- **Windows:** cal el mode de desenvolupador (*Configuració → Sistema → Per a desenvolupadors*), que deixa crear enllaços simbòlics sense permisos d'administrador, i executar-lo des de Git Bash. Sense aquest mode, el `ln -s` de Git Bash fa una còpia en silenci. Per això `install.sh` fa servir `MSYS=winsymlinks:nativestrict`, i s'atura si no pot crear un enllaç de veritat. Si també vols que `ln -s` es comporti així fora de l'script, posa `export MSYS=winsymlinks:nativestrict` al teu `~/.bashrc`.
 
-**A Windows** cal el mode de desenvolupador (*Configuració → Sistema → Per a desenvolupadors*), que deixa crear enllaços simbòlics sense permisos d'administrador, i executar-lo des de Git Bash. Sense aquest mode, el `ln -s` de Git Bash fa una còpia en silenci. Per això `install.sh` fa servir `MSYS=winsymlinks:nativestrict`, i s'atura si no pot crear un enllaç de veritat. Si també vols que `ln -s` es comporti així fora de l'script, posa `export MSYS=winsymlinks:nativestrict` al teu `~/.bashrc`.
+**Prova.** `./test-install.sh` l'executa en un `HOME` temporal i sobre una còpia temporal del repo, i en acabar ho esborra tot. No toca mai `~/.claude` ni el repo de debò. El workflow `test-install.yml` el corre a cada PR, en Linux i en Windows.
 
 ## Hooks
 
