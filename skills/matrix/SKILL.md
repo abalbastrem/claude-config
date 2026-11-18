@@ -53,15 +53,16 @@ Classes are the four of the global CLAUDE.md ("Tancament de la Story"), and they
 
 ```json
 [{ "file": "backend/app/models/user.ts", "code": "return first.slice(0, 2).toUpperCase()",
-   "class": "missing-criterion", "note": "One-word name: no scenario covers it", "ref": "SC-31 proposed" }]
+   "class": "dead-or-defensive", "note": "One-word name: the UI shows the name, and the email always has two parts" }]
 ```
 
 - `class`: `missing-criterion`, `dead-or-defensive`, `technical-decision` or `other-story`.
 - `code` is the trimmed text of the line the view shows, or `*` for a whole module. The key is file + code, not the line number, so a classification follows the code when it moves. Two lines with the same text in one file share it.
-- `ref`: where the user accepted it (the PR comment URL), or the proposed scenario.
+- `note`: why, readable without the conversation.
+- `ref` (optional): a link to the discussion, when there was one.
 - `matrix.md` gets a "Classified uncovered branches" section from this file only, so it does not churn with coverage.
 
-**Never write a classification on your own.** When closing a story, propose a class for each new uncovered branch in a table and stop. Write to the file only what the user approves with their mark on the PR (`Aprobado:`, defined in the global CLAUDE.md, section «Cap test sense criteri»), and set each entry's `ref` to that comment: so open the PR first, propose there, and commit the file after the approval. A missing criterion becomes a scenario only after the user approves it too.
+**You classify; the user decides what follows from it.** When closing a story, classify each new uncovered branch, write it to the file and list it in the PR. What a class leads to is the user's decision, taken in the conversation (global CLAUDE.md, section «Cap test sense criteri»): a missing criterion becomes a scenario only after the user agrees, and dead code or another story's code is removed only if they say so.
 
 ## Arguments
 

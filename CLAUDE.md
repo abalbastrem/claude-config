@@ -5,6 +5,7 @@ Aquestes són les preferències per a tots els projectes. Si el `CLAUDE.md` d'un
 ## Entorn
 
 - A Windows, fes servir sempre Git Bash, mai PowerShell.
+- Els fitxers generats (esquemes, registres, components d'una llibreria copiats al repo) no s'editen a mà: es regeneren amb la seva eina. Cada projecte els bloqueja amb regles `deny` al seu `.claude/settings.json`.
 - Els secrets i els tokens no passen mai pel xat: digue'm on els he de posar i els poso jo.
 
 ## De la idea al codi
@@ -36,14 +37,14 @@ TDD diu quan escriure el test, no a quin nivell. Cada criteri es prova per defec
 
 Tot test penja d'un escenari de la Story, o d'una decisió tècnica que jo hagi acceptat. Un test sobre una branca que ningú no ha decidit converteix una casualitat en contracte.
 
-- **Traça:** el títol del test comença per l'identificador de l'escenari que prova (`SC-7 · …`, o `SC-7 SC-8 · …` si en prova més d'un). A OpenSpec, cada escenari porta l'ID al títol, `#### Scenario: [SC-n] …`, únic a tot el repo; un escenari nou agafa el següent número lliure i cap número no es reutilitza. Un test unitari d'una decisió tècnica enllaça on la vaig acceptar.
+- **Traça:** el títol del test comença per l'identificador de l'escenari que prova (`SC-7 · …`, o `SC-7 SC-8 · …` si en prova més d'un). A OpenSpec, cada escenari porta l'ID al títol, `#### Scenario: [SC-n] …`, únic a tot el repo; un escenari nou agafa el següent número lliure i cap número no es reutilitza. Un test unitari d'una decisió tècnica enllaça on queda escrita.
 - **Matriu de traçabilitat:** si el projecte en té, l'eina de `tools/matrix/` d'aquest repo creua escenaris, tests i cobertura (vegeu el README i la skill `/matrix`). Es recorre de capability a requisit, a escenari i a test, mai al revés.
-- **Una decisió és acceptada** (un escenari nou, una decisió tècnica, la classificació d'una branca) quan hi ha la meva marca al PR o queda escrita al disseny de la Story (a OpenSpec, el `design.md`) i jo l'he revisat. Que l'agent l'escrigui a la descripció del PR, o que jo la digui al xat, no compta. Les decisions anteriors a la marca que ja tenen un enllaç a un comentari meu continuen valent.
-- **La meva marca al PR.** Així decideixo sense escriure gaire: l'agent proposa i jo aprovo o rebutjo amb una línia.
-  - **Què val:** un comentari meu (el propietari del repo, que no comenci per `🤖 Claude:`) que **comença** exactament per `Aprobado:` o `Rechazado:`, amb aquestes majúscules i en castellà, a la primera línia. No val si va a mig comentari, dins una cita o un bloc de codi, en minúscules o traduïda (`Aprovat:`, `Approved:`), ni si l'escriu un altre.
-  - **Abast:** només val el que el comentari anomena explícitament. Si l'agent havia proposat 1, 2 i 3 i jo escric `Aprobado: 1 y 3`, el 2 queda pendent, no aprovat ni rebutjat. Un `Rechazado:` vol dir que la proposta no s'aplica: l'agent en proposa una alternativa o em pregunta, i no la torna a presentar igual.
-  - **L'agent mai** no escriu, edita, cita ni copia aquestes marques, no edita comentaris meus, no marca caselles de decisió i no aprova PR. Mentre comparteixi el meu compte de GitHub, tot el que publica (també les revisions de l'`adversarial-reviewer` fetes en local) comença per `🤖 Claude:`.
-  - **Com proposa l'agent:** opcions numerades, cadascuna amb el que s'aprovaria, perquè n'hi hagi prou amb una línia. Primer obre el PR i hi proposa; quan aprovo, apunta l'URL del meu comentari on calgui (el `ref` de cada entrada de `branches.json`, o el disseny) i ho commiteja.
+- **Les decisions passen per mi:** un escenari nou, una decisió tècnica, esborrar codi o ajornar-lo fins a la seva Story. L'agent me les proposa amb opcions numerades, perquè n'hi hagi prou amb una línia, i quan decideixo les deixa escrites on toca: l'escenari a la Story o a la spec, i la decisió tècnica al disseny de la Story (a OpenSpec, el `design.md`) o a la descripció del PR. El xat es perd; el que queda escrit, no.
+- **La classificació de les branques no cobertes la decideix l'agent** (vegeu «Tancament de la Story»). La revisa l'`adversarial-reviewer`, i entra al PR com la resta del diff.
+- **L'aprovació del PR.** N'hi ha una per PR, no una per decisió. Quan, revisades les troballes de l'`adversarial-reviewer` o d'una altra revisió, decidim al xat tirar endavant encara que en quedin sense arreglar, el bot aprovador hi publica un comentari que **comença** exactament per `Aprobado:`, amb el perquè que hem acordat: quines troballes queden i per què no impedeixen el merge.
+  - **Qui l'escriu:** només el bot aprovador, una GitHub App que només pot comentar PR (no pot fer push, ni merge, ni aprovar amb el botó de GitHub). Es publica amb el seu script, i el harness em demana confirmació cada vegada: si no accepto, no surt. Un `Aprobado:` d'un altre autor no val.
+  - **El merge el faig sempre jo.** Cap agent no fa el merge d'un PR, ni amb `gh` ni amb l'API ni empenyent a la branca protegida.
+  - **L'agent mai** no escriu `Aprobado:` amb el meu compte, no edita comentaris meus, no marca caselles de decisió i no aprova PR. Mentre comparteixi el meu compte de GitHub, tot el que hi publica (també les revisions de l'`adversarial-reviewer` fetes en local) comença per `🤖 Claude:`.
 - **Un test de regressió** penja del criteri que el bug incomplia. Si no n'hi ha cap, és un criteri que falta.
 - Si mentre escrius els tests apareix una branca o un cas que cap criteri no recull, **atura't i porta-me'l**. No inventis l'escenari ni escriguis el test pel teu compte: decidir-ho és decisió de producte. Fins que respongui, aquella Subtask queda bloquejada; si n'hi ha d'altres que no en depenen, pots continuar amb aquestes.
 
@@ -64,12 +65,10 @@ La mètrica és la **cobertura de branques del codi nou de la Story** (el diff d
 | **Decisió tècnica pròpia:** no la veu ningú, però el sistema la pren | Test unitari, un cop acceptada la decisió |
 | **Codi d'una altra Story que s'ha avançat** | Proposa treure'l fins que arribi la seva Story, i ho decideixo jo |
 
-**On viu la classificació.** Totes quatre classes porten el motiu i l'enllaç a la meva marca `Aprobado:` (vegeu «Cap test sense criteri»):
+**On viu la classificació.** La classe la decideix l'agent, i cada branca en porta el motiu. El que se'n deriva (un escenari nou, esborrar o ajornar codi, una decisió tècnica) passa per mi, com qualsevol altra decisió (vegeu «Cap test sense criteri»).
 
-- **Amb matriu de traçabilitat:** al fitxer de classificacions de la matriu (`branches.json`), versionat, una entrada per branca amb el seu `ref`, i la vista viva la mostra al costat del codi. És el lloc únic de la decisió: res d'exclusions ni de comentaris al codi per a l'eina de cobertura.
-- **Sense matriu:** a la descripció del PR, en una taula (branca, classe, motiu), i la meva marca al PR la fa valer.
-
-L'agent només hi escriu el que he aprovat.
+- **Amb matriu de traçabilitat:** al fitxer de classificacions de la matriu (`branches.json`), versionat, una entrada per branca amb el seu motiu (`note`), i la vista viva la mostra al costat del codi. El `ref` és opcional: un enllaç a la discussió, si n'hi ha hagut. És el lloc únic de la classificació: res d'exclusions ni de comentaris al codi per a l'eina de cobertura.
+- **Sense matriu:** a la descripció del PR, en una taula (branca, classe, motiu).
 
 La cobertura no veu l'altre forat: una branca coberta per un test que no penja de cap criteri. Aquest el busca l'agent `adversarial-reviewer` a cada PR, però és un revisor LLM: redueix el risc, no el garanteix.
 
