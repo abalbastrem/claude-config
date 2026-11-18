@@ -12,7 +12,7 @@ Claude Code llegeix `~/.claude/CLAUDE.md` a tots els projectes. Aquest fitxer no
 @~/projects/software/claude-config/CLAUDE.md
 ```
 
-Per comprovar que s'aplica, executa `/memory` dins de Claude Code.
+Per comprovar que s'aplica, executa `/memory` dins de Claude Code. El `CLAUDE.md` s'importa en lloc d'enllaçar-se perquè `@` és el mecanisme propi de Claude Code i funciona a qualsevol màquina, sense cap requisit.
 
 La resta (agents, skills i la barra d'estat) l'enllaça `install.sh`. Claude Code només llegeix aquestes peces de `~/.claude/`, i amb un enllaç simbòlic llegeix el fitxer del repo tal com està, en lloc d'una còpia que es pot desfasar:
 
@@ -20,7 +20,15 @@ La resta (agents, skills i la barra d'estat) l'enllaça `install.sh`. Claude Cod
 ./install.sh
 ```
 
-Crea `~/.claude/agents`, `~/.claude/skills/matrix`, `~/.claude/skills/prompt-log` i `~/.claude/statusline-command.sh` com a enllaços cap a aquest repo. És idempotent: es pot tornar a executar després de clonar o quan s'hi afegeixi un enllaç. El que ja hi hagués i no fos l'enllaç bo es mou a `~/.claude/backup-<data>/`, mai no s'esborra.
+Crea `~/.claude/agents`, `~/.claude/skills/matrix`, `~/.claude/skills/prompt-log` i `~/.claude/statusline-command.sh` com a enllaços cap a aquest repo. És idempotent: es pot tornar a executar després de clonar o quan s'hi afegeixi un enllaç. El que ja hi hagués i no fos l'enllaç bo es mou a una carpeta pròpia, `~/.claude/backup-AAAAMMDD-HHMMSS-XXXX/`, i mai no s'esborra. Si un enllaç antic apuntava a un altre lloc, el log diu on.
+
+Abans de tocar res, comprova que hi són tots els fitxers del repo. També comprova que ni `~/.claude` ni `~/.claude/skills` siguin enllaços: si ho fossin, escriuria a través seu, potser dins d'aquest mateix repo, i per això s'atura.
+
+L'enllaç de la barra d'estat no l'activa per si sol: `~/.claude/settings.json` ha de tenir `"statusLine": { "type": "command", "command": "bash ~/.claude/statusline-command.sh" }`.
+
+**A macOS i Linux** funciona tal com està.
+
+`./test-install.sh` el prova en un `HOME` temporal i amb una còpia temporal del repo. No toca mai `~/.claude` ni el repo de debò.
 
 **A Windows** cal el mode de desenvolupador (*Configuració → Sistema → Per a desenvolupadors*), que deixa crear enllaços simbòlics sense permisos d'administrador, i executar-lo des de Git Bash. Sense aquest mode, el `ln -s` de Git Bash fa una còpia en silenci. Per això `install.sh` fa servir `MSYS=winsymlinks:nativestrict`, i s'atura si no pot crear un enllaç de veritat. Si també vols que `ln -s` es comporti així fora de l'script, posa `export MSYS=winsymlinks:nativestrict` al teu `~/.bashrc`.
 
