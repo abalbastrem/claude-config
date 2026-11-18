@@ -47,7 +47,7 @@ export type Scenario = {
 // untracked files included).
 type Count = { covered: number; total: number }
 
-// Branch analysis: every uncovered branch, with its code and, when the user has decided it, its
+// Branch analysis: every uncovered branch, with its code and, once it has been classified, its
 // class (the table of the global CLAUDE.md, "Tancament de la Story"). Classifications live in a
 // versioned file of the project (config `classifications`, default branches.json), keyed by file
 // and the trimmed text of the line, so they survive code moving up or down.

@@ -10,7 +10,7 @@ A general tool that lives in the claude-config repo, `tools/matrix/`. It crosses
 
 - **OpenSpec scenarios**: the living spec in `openspec/specs/`, plus the delta specs of changes in progress;
 - **test results**: Japa (ndjson reporter), Vitest (json reporter) and Playwright (json reporter);
-- **branch coverage**: istanbul `coverage-final.json`, from c8 or `@vitest/coverage-v8`. Coverage is shown globally and for the new code against a base branch, with a **branch analysis**: every uncovered branch with its code, and its class once the user has decided it.
+- **branch coverage**: istanbul `coverage-final.json`, from c8 or `@vitest/coverage-v8`. Coverage is shown globally and for the new code against a base branch, with a **branch analysis**: every uncovered branch with its code, and its class once it has been classified.
 
 It produces:
 
@@ -52,8 +52,8 @@ The live view lists every uncovered branch per layer and file: line, code, branc
 Classes are the four of the global CLAUDE.md ("Tancament de la Story"), and they live in a versioned file of the project, `<dir>/branches.json` (config `classifications` to rename it):
 
 ```json
-[{ "file": "backend/app/models/user.ts", "code": "return first.slice(0, 2).toUpperCase()",
-   "class": "dead-or-defensive", "note": "One-word name: the UI shows the name, and the email always has two parts" }]
+[{ "file": "backend/app/controllers/profile_controller.ts", "code": "*",
+   "class": "other-story", "note": "No test loads the module: it belongs to the accounts epic, which has no spec yet" }]
 ```
 
 - `class`: `missing-criterion`, `dead-or-defensive`, `technical-decision` or `other-story`.

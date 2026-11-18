@@ -5,7 +5,6 @@ Aquestes són les preferències per a tots els projectes. Si el `CLAUDE.md` d'un
 ## Entorn
 
 - A Windows, fes servir sempre Git Bash, mai PowerShell.
-- Els fitxers generats (esquemes, registres, components d'una llibreria copiats al repo) no s'editen a mà: es regeneren amb la seva eina. Cada projecte els bloqueja amb regles `deny` al seu `.claude/settings.json`.
 - Els secrets i els tokens no passen mai pel xat: digue'm on els he de posar i els poso jo.
 
 ## De la idea al codi
@@ -39,10 +38,12 @@ Tot test penja d'un escenari de la Story, o d'una decisió tècnica que jo hagi 
 
 - **Traça:** el títol del test comença per l'identificador de l'escenari que prova (`SC-7 · …`, o `SC-7 SC-8 · …` si en prova més d'un). A OpenSpec, cada escenari porta l'ID al títol, `#### Scenario: [SC-n] …`, únic a tot el repo; un escenari nou agafa el següent número lliure i cap número no es reutilitza. Un test unitari d'una decisió tècnica enllaça on queda escrita.
 - **Matriu de traçabilitat:** si el projecte en té, l'eina de `tools/matrix/` d'aquest repo creua escenaris, tests i cobertura (vegeu el README i la skill `/matrix`). Es recorre de capability a requisit, a escenari i a test, mai al revés.
-- **Les decisions passen per mi:** un escenari nou, una decisió tècnica, esborrar codi o ajornar-lo fins a la seva Story. L'agent me les proposa amb opcions numerades, perquè n'hi hagi prou amb una línia, i quan decideixo les deixa escrites on toca: l'escenari a la Story o a la spec, i la decisió tècnica al disseny de la Story (a OpenSpec, el `design.md`) o a la descripció del PR. El xat es perd; el que queda escrit, no.
+- **Les decisions passen per mi:** un escenari nou, una decisió tècnica, esborrar codi o ajornar-lo fins a la seva Story. L'agent me les proposa amb opcions numerades, perquè n'hi hagi prou amb una línia, i quan decideixo les deixa escrites on toca: l'escenari a la Story o a la spec, i la decisió tècnica al disseny de la Story (a OpenSpec, el `design.md`) o a la descripció del PR. El xat es perd; el que queda escrit, no. La descripció del PR porta una secció **«Decisions preses»** que les llista totes, cada escenari nou i cada decisió tècnica, perquè es vegin d'un cop d'ull.
 - **La classificació de les branques no cobertes la decideix l'agent** (vegeu «Tancament de la Story»). La revisa l'`adversarial-reviewer`, i entra al PR com la resta del diff.
-- **L'aprovació del PR.** N'hi ha una per PR, no una per decisió. Quan, revisades les troballes de l'`adversarial-reviewer` o d'una altra revisió, decidim al xat tirar endavant encara que en quedin sense arreglar, el bot aprovador hi publica un comentari que **comença** exactament per `Aprobado:`, amb el perquè que hem acordat: quines troballes queden i per què no impedeixen el merge.
+- **L'aprovació del PR.** N'hi ha una per PR, i parla només de les troballes de l'`adversarial-reviewer`: no aprova les decisions, que ja han passat per mi. Quan, revisades les troballes, decidim al xat tirar endavant encara que en quedin sense arreglar, el bot aprovador hi publica un comentari que **comença** exactament per `Aprobado:`, amb el perquè que hem acordat: quines troballes queden i per què no impedeixen el merge. La decisió es pren al xat; el comentari n'és el registre.
   - **Qui l'escriu:** només el bot aprovador, una GitHub App que només pot comentar PR (no pot fer push, ni merge, ni aprovar amb el botó de GitHub). Es publica amb el seu script, i el harness em demana confirmació cada vegada: si no accepto, no surt. Un `Aprobado:` d'un altre autor no val.
+  - **És per a mi:** el llegeixo abans de fer el merge. Cap eina ni cap revisor no el comprova; l'`adversarial-reviewer` passa abans que existeixi.
+  - **Prerequisits:** aquestes garanties només valen si existeix l'App, si l'script del bot té una regla `ask` al harness, si la clau privada de l'App queda fora de l'abast de l'agent (una regla `deny` sobre la carpeta on la deso) i si la branca de destí està protegida. Mentre no sigui així, no hi ha `Aprobado:` possible.
   - **El merge el faig sempre jo.** Cap agent no fa el merge d'un PR, ni amb `gh` ni amb l'API ni empenyent a la branca protegida.
   - **L'agent mai** no escriu `Aprobado:` amb el meu compte, no edita comentaris meus, no marca caselles de decisió i no aprova PR. Mentre comparteixi el meu compte de GitHub, tot el que hi publica (també les revisions de l'`adversarial-reviewer` fetes en local) comença per `🤖 Claude:`.
 - **Un test de regressió** penja del criteri que el bug incomplia. Si no n'hi ha cap, és un criteri que falta.
@@ -62,10 +63,10 @@ La mètrica és la **cobertura de branques del codi nou de la Story** (el diff d
 |---|---|
 | **Un criteri que falta:** comportament visible que importa a algú | Proposa l'escenari. Quan l'aprovo, va a la Story i després es fa el test |
 | **Codi mort o defensiu:** no s'hi pot arribar, perquè una altra capa ja ho impedeix | Proposa esborrar-lo i ho decideixo jo. Si es conserva, el motiu va a la classificació (vegeu més avall), no a comentaris al codi |
-| **Decisió tècnica pròpia:** no la veu ningú, però el sistema la pren | Test unitari, un cop acceptada la decisió |
+| **Decisió tècnica pròpia:** no la veu ningú, però el sistema la pren | Proposa la decisió. Quan l'he acceptada jo, va al disseny o a «Decisions preses» i després es fa el test unitari |
 | **Codi d'una altra Story que s'ha avançat** | Proposa treure'l fins que arribi la seva Story, i ho decideixo jo |
 
-**On viu la classificació.** La classe la decideix l'agent, i cada branca en porta el motiu. El que se'n deriva (un escenari nou, esborrar o ajornar codi, una decisió tècnica) passa per mi, com qualsevol altra decisió (vegeu «Cap test sense criteri»).
+**On viu la classificació.** La classe la decideix l'agent, i cada branca en porta el motiu. El que se'n deriva (un escenari nou, esborrar o ajornar codi, una decisió tècnica) passa per mi, com qualsevol altra decisió (vegeu «Cap test sense criteri»). El perquè d'aquest model és a l'[ADR 0002](https://github.com/abalbastrem/claude-config/blob/main/docs/adr/0002-aprovacio-per-pr.md).
 
 - **Amb matriu de traçabilitat:** al fitxer de classificacions de la matriu (`branches.json`), versionat, una entrada per branca amb el seu motiu (`note`), i la vista viva la mostra al costat del codi. El `ref` és opcional: un enllaç a la discussió, si n'hi ha hagut. És el lloc únic de la classificació: res d'exclusions ni de comentaris al codi per a l'eina de cobertura.
 - **Sense matriu:** a la descripció del PR, en una taula (branca, classe, motiu).
