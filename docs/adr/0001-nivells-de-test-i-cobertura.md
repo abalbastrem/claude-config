@@ -1,5 +1,6 @@
 ---
 status: accepted
+superseded-in-part-by: 0002-aprovacio-per-pr
 date: 2026-11-17
 decision-makers: abalbastrem
 ---

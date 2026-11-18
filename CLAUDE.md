@@ -16,7 +16,7 @@ PRD → Epics → Stories amb Given/When/Then → Subtasks → implementació am
 - **PRD:** només decisions de producte, tan mínim com es pugui. Els casos límit van a les Stories, i no s'hi afegeixen requisits per protegir-se de l'ús indegut de l'eina.
 - **Stories:** criteris Given/When/Then amb les paraules clau de l'RFC 2119 (MUST, MUST NOT). Tota la feina penja d'una Story: la preparació tècnica és una Subtask de la primera Story que la necessita.
 - **Subtasks:** s'escriuen quan arriba la Story, no abans, i pensades per a TDD.
-- **Decisions tècniques transversals:** un ADR a `docs/adr/` amb el perquè, i una referència curta al `CLAUDE.md` del projecte. Si s'han estudiat alternatives de veritat, l'ADR segueix el format [MADR](https://adr.github.io/madr/), amb les opcions considerades i per què s'han descartat.
+- **Decisions tècniques transversals:** un ADR a `docs/adr/` amb el perquè, i una referència curta al `CLAUDE.md` del projecte. Si s'han estudiat alternatives de veritat, l'ADR segueix el format [MADR](https://adr.github.io/madr/), amb les opcions considerades i per què s'han descartat. Un ADR acceptat no es reescriu: si un de nou en substitueix tot o una part, a l'antic només se li toquen les metadades (per exemple, `superseded-in-part-by: 0002`), i el nou explica què substitueix.
 
 ## Tests
 
@@ -36,14 +36,16 @@ TDD diu quan escriure el test, no a quin nivell. Cada criteri es prova per defec
 
 Tot test penja d'un escenari de la Story, o d'una decisió tècnica que jo hagi acceptat. Un test sobre una branca que ningú no ha decidit converteix una casualitat en contracte.
 
-- **Traça:** el títol del test comença per l'identificador de l'escenari que prova (`SC-7 · …`, o `SC-7 SC-8 · …` si en prova més d'un). A OpenSpec, cada escenari porta l'ID al títol, `#### Scenario: [SC-n] …`, únic a tot el repo; un escenari nou agafa el següent número lliure i cap número no es reutilitza. Un test unitari d'una decisió tècnica enllaça on la vaig acceptar.
+- **Traça:** el títol del test comença per l'identificador de l'escenari que prova (`SC-7 · …`, o `SC-7 SC-8 · …` si en prova més d'un). A OpenSpec, cada escenari porta l'ID al títol, `#### Scenario: [SC-n] …`, únic a tot el repo; un escenari nou agafa el següent número lliure i cap número no es reutilitza. Un test unitari d'una decisió tècnica enllaça on queda escrita.
 - **Matriu de traçabilitat:** si el projecte en té, l'eina de `tools/matrix/` d'aquest repo creua escenaris, tests i cobertura (vegeu el README i la skill `/matrix`). Es recorre de capability a requisit, a escenari i a test, mai al revés.
-- **Una decisió és acceptada** (un escenari nou, una decisió tècnica, la classificació d'una branca) quan hi ha la meva marca al PR o queda escrita al disseny de la Story (a OpenSpec, el `design.md`) i jo l'he revisat. Que l'agent l'escrigui a la descripció del PR, o que jo la digui al xat, no compta. Les decisions anteriors a la marca que ja tenen un enllaç a un comentari meu continuen valent.
-- **La meva marca al PR.** Així decideixo sense escriure gaire: l'agent proposa i jo aprovo o rebutjo amb una línia.
-  - **Què val:** un comentari meu (el propietari del repo, que no comenci per `🤖 Claude:`) que **comença** exactament per `Aprobado:` o `Rechazado:`, amb aquestes majúscules i en castellà, a la primera línia. No val si va a mig comentari, dins una cita o un bloc de codi, en minúscules o traduïda (`Aprovat:`, `Approved:`), ni si l'escriu un altre.
-  - **Abast:** només val el que el comentari anomena explícitament. Si l'agent havia proposat 1, 2 i 3 i jo escric `Aprobado: 1 y 3`, el 2 queda pendent, no aprovat ni rebutjat. Un `Rechazado:` vol dir que la proposta no s'aplica: l'agent en proposa una alternativa o em pregunta, i no la torna a presentar igual.
-  - **L'agent mai** no escriu, edita, cita ni copia aquestes marques, no edita comentaris meus, no marca caselles de decisió i no aprova PR. Mentre comparteixi el meu compte de GitHub, tot el que publica (també les revisions de l'`adversarial-reviewer` fetes en local) comença per `🤖 Claude:`.
-  - **Com proposa l'agent:** opcions numerades, cadascuna amb el que s'aprovaria, perquè n'hi hagi prou amb una línia. Primer obre el PR i hi proposa; quan aprovo, apunta l'URL del meu comentari on calgui (el `ref` de cada entrada de `branches.json`, o el disseny) i ho commiteja.
+- **Les decisions passen per mi:** un escenari nou, una decisió tècnica, esborrar codi o ajornar-lo fins a la seva Story. L'agent me les proposa amb opcions numerades, perquè n'hi hagi prou amb una línia, i quan decideixo les deixa escrites on toca: l'escenari a la Story o a la spec, i la decisió tècnica al disseny de la Story (a OpenSpec, el `design.md`), que és versionat i dona als tests un enllaç estable; a la descripció del PR només si no hi ha Story. El xat es perd; el que queda escrit, no. La descripció del PR porta una secció **«Decisions preses»** que les llista totes, cada escenari nou i cada decisió tècnica, perquè es vegin d'un cop d'ull. Aquesta secció la redacta l'agent: serveix perquè jo vegi les decisions abans del merge, no demostra que les hagi aprovat.
+- **La classificació de les branques no cobertes la decideix l'agent** (vegeu «Tancament de la Story»). La revisa l'`adversarial-reviewer`, i entra al PR com la resta del diff.
+- **L'aprovació del PR.** N'hi ha una per PR, i parla només de les troballes de l'`adversarial-reviewer`: no aprova les decisions, que ja han passat per mi. Quan, revisades les troballes, decidim al xat tirar endavant encara que en quedin sense arreglar, el bot aprovador hi publica un comentari que **comença** exactament per `Aprobado:`, amb el perquè que hem acordat: quines troballes queden i per què no impedeixen el merge. La decisió es pren al xat; el comentari n'és el registre.
+  - **Qui l'escriu:** només el bot aprovador, una GitHub App sense permís de *Contents*, de manera que no pot fer push ni merge. El seu permís de *Pull requests* li permetria aprovar amb el botó de GitHub, però el seu script només publica comentaris. Es publica amb aquest script, i el harness em demana confirmació cada vegada: si no accepto, no surt. Un `Aprobado:` d'un altre autor no val.
+  - **És per a mi:** el llegeixo abans de fer el merge. Cap eina ni cap revisor no el comprova; l'`adversarial-reviewer` passa abans que existeixi.
+  - **Prerequisits:** aquestes garanties només valen si existeix l'App, si l'script del bot té una regla `ask` al harness, si la clau privada de l'App queda fora de l'abast de l'agent (una regla `deny` sobre la carpeta on la deso) i si la branca de destí està protegida. Mentre no sigui així, no hi ha `Aprobado:` possible.
+  - **El merge el faig sempre jo.** Cap agent no fa el merge d'un PR, ni amb `gh` ni amb l'API ni empenyent a la branca protegida.
+  - **L'agent mai** no escriu `Aprobado:` amb el meu compte, no edita comentaris meus, no marca caselles de decisió i no aprova PR. Mentre comparteixi el meu compte de GitHub, tot el que hi publica (també les revisions de l'`adversarial-reviewer` fetes en local) comença per `🤖 Claude:`.
 - **Un test de regressió** penja del criteri que el bug incomplia. Si no n'hi ha cap, és un criteri que falta.
 - Si mentre escrius els tests apareix una branca o un cas que cap criteri no recull, **atura't i porta-me'l**. No inventis l'escenari ni escriguis el test pel teu compte: decidir-ho és decisió de producte. Fins que respongui, aquella Subtask queda bloquejada; si n'hi ha d'altres que no en depenen, pots continuar amb aquestes.
 
@@ -61,15 +63,13 @@ La mètrica és la **cobertura de branques del codi nou de la Story** (el diff d
 |---|---|
 | **Un criteri que falta:** comportament visible que importa a algú | Proposa l'escenari. Quan l'aprovo, va a la Story i després es fa el test |
 | **Codi mort o defensiu:** no s'hi pot arribar, perquè una altra capa ja ho impedeix | Proposa esborrar-lo i ho decideixo jo. Si es conserva, el motiu va a la classificació (vegeu més avall), no a comentaris al codi |
-| **Decisió tècnica pròpia:** no la veu ningú, però el sistema la pren | Test unitari, un cop acceptada la decisió |
+| **Decisió tècnica pròpia:** no la veu ningú, però el sistema la pren | Proposa la decisió. Quan l'he acceptada jo, va al disseny o a «Decisions preses» i després es fa el test unitari |
 | **Codi d'una altra Story que s'ha avançat** | Proposa treure'l fins que arribi la seva Story, i ho decideixo jo |
 
-**On viu la classificació.** Totes quatre classes porten el motiu i l'enllaç a la meva marca `Aprobado:` (vegeu «Cap test sense criteri»):
+**On viu la classificació.** La classe la decideix l'agent, i cada branca en porta el motiu. El que se'n deriva (un escenari nou, esborrar o ajornar codi, una decisió tècnica) passa per mi, com qualsevol altra decisió (vegeu «Cap test sense criteri»). El perquè d'aquest model és a l'[ADR 0002](https://github.com/abalbastrem/claude-config/blob/main/docs/adr/0002-aprovacio-per-pr.md).
 
-- **Amb matriu de traçabilitat:** al fitxer de classificacions de la matriu (`branches.json`), versionat, una entrada per branca amb el seu `ref`, i la vista viva la mostra al costat del codi. És el lloc únic de la decisió: res d'exclusions ni de comentaris al codi per a l'eina de cobertura.
-- **Sense matriu:** a la descripció del PR, en una taula (branca, classe, motiu), i la meva marca al PR la fa valer.
-
-L'agent només hi escriu el que he aprovat.
+- **Amb matriu de traçabilitat:** al fitxer de classificacions de la matriu (`branches.json`), versionat, una entrada per branca amb el seu motiu (`note`), i la vista viva la mostra al costat del codi. El `ref` és opcional: un enllaç a la discussió, si n'hi ha hagut. És el lloc únic de la classificació: res d'exclusions ni de comentaris al codi per a l'eina de cobertura.
+- **Sense matriu:** a la descripció del PR, en una taula (branca, classe, motiu).
 
 La cobertura no veu l'altre forat: una branca coberta per un test que no penja de cap criteri. Aquest el busca l'agent `adversarial-reviewer` a cada PR, però és un revisor LLM: redueix el risc, no el garanteix.
 
