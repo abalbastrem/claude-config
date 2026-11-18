@@ -41,7 +41,7 @@ A la pràctica:
 
 L'opció 3.
 
-- **Les decisions** (escenari nou, decisió tècnica, esborrar o ajornar codi) es prenen al xat. L'agent les deixa escrites a la Story, al disseny o a la descripció del PR, i les llista a la secció «Decisions preses» del PR. L'`adversarial-reviewer` assenyala les que el diff introdueix i no hi surten.
+- **Les decisions** (escenari nou, decisió tècnica, esborrar o ajornar codi) es prenen al xat. L'agent les deixa escrites a la Story o al seu disseny (a la descripció del PR només si no hi ha Story), i les llista a la secció «Decisions preses» del PR. L'`adversarial-reviewer` assenyala les que el diff introdueix i no hi surten.
 - **La classificació de les branques no cobertes la fa l'agent.** El motiu va a `note`, i el `ref` de `branches.json` passa a ser opcional: un enllaç a la discussió, si n'hi ha hagut. El que se'n derivi continua passant per la persona.
 - **L'`Aprobado:` és un per PR, i parla només de les troballes de l'`adversarial-reviewer`:** quines queden i per què no impedeixen el merge. No aprova les decisions, que ja hi han passat. L'escriu el bot aprovador, una GitHub App amb permís de *Pull requests* i sense permís de *Contents*: no pot fer push ni merge. El permís de *Pull requests* també li permetria aprovar amb el botó *Approve*; no ho fa perquè el seu script només publica comentaris. L'script que el publica té una regla `ask` al harness, i la clau privada de l'App té una regla `deny` de lectura.
 - **El merge el fa sempre la persona.**
