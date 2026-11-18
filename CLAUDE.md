@@ -5,6 +5,7 @@ Aquestes són les preferències per a tots els projectes. Si el `CLAUDE.md` d'un
 ## Entorn
 
 - A Windows, fes servir sempre Git Bash, mai PowerShell.
+- Els fitxers generats (esquemes, registres, components d'una llibreria copiats al repo) no s'editen a mà: es regeneren amb la seva eina. Cada projecte els bloqueja amb regles `deny` d'`Edit` i `Write` al seu `.claude/settings.json`, i si pot, la CI comprova que coincideixin amb el que genera l'eina.
 - Els secrets i els tokens no passen mai pel xat: digue'm on els he de posar i els poso jo.
 
 ## De la idea al codi
