@@ -37,6 +37,21 @@ out=$(HOME=$h "$repo/install.sh" 2>&1)
 check "every line says ok" '[ "$(echo "$out" | grep -vc "^ok ")" = 0 ]'
 check "no backup folder" '! ls -d "$h"/.claude/backup-* >/dev/null 2>&1'
 
+echo "A correct link with a relative path is left alone"
+h=$(fresh_home)
+mkdir -p "$h/.claude"
+HOME=$h "$repo/install.sh" >/dev/null 2>&1
+rm "$h/.claude/agents"
+rel=$(cd "$h/.claude" && python -c "import os,sys; print(os.path.relpath(sys.argv[1]))" "$repo/agents" 2>/dev/null || echo "")
+if [ -n "$rel" ] && (cd "$h/.claude" && ln -s "$rel" agents); then
+  out=$(HOME=$h "$repo/install.sh" 2>&1)
+  check "agents says ok" 'echo "$out" | grep -q "^ok  *agents$"'
+  check "no backup folder" '! ls -d "$h"/.claude/backup-* >/dev/null 2>&1'
+  check "no error output" '! echo "$out" | grep -qi "no such file"'
+else
+  fail "could not build a relative link for the test"
+fi
+
 echo "An existing folder is moved to a backup, not deleted"
 h=$(fresh_home)
 mkdir -p "$h/.claude/agents" && echo mine > "$h/.claude/agents/own.md"
