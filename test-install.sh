@@ -84,6 +84,44 @@ out=$(HOME=$h "$repo/install.sh" 2>&1)
 check "a second run leaves it byte for byte" '[ "$(cat "$s")" = "$before" ]'
 check "and says so" 'echo "$out" | grep -q "^ok  *settings.json$"'
 
+echo "Shared settings: a hook you already have with another path is not added twice"
+h=$(fresh_home)
+mkdir -p "$h/.claude"
+cat > "$h/.claude/settings.json" <<'JSON'
+{ "hooks": { "Stop": [ { "hooks": [ { "type": "command", "command": "bash /some/other/clone/hooks/notify-sound.sh fi", "async": true } ] } ] } }
+JSON
+HOME=$h "$repo/install.sh" >/dev/null 2>&1
+check "Stop still has one hook group" '[ "$(jq ".hooks.Stop | length" "$h/.claude/settings.json" | tr -d "\r")" = 1 ]'
+check "the other hooks are added" '[ "$(jq ".hooks.UserPromptSubmit | length" "$h/.claude/settings.json" | tr -d "\r")" = 1 ]'
+
+echo "Shared settings: hook paths are quoted"
+h=$(fresh_home)
+HOME=$h "$repo/install.sh" >/dev/null 2>&1
+check "the script path is in double quotes" 'jq -r ".hooks.Stop[0].hooks[0].command" "$h/.claude/settings.json" | grep -q "^bash \".*/hooks/notify-sound.sh\" fi"'
+check "settings.json has no CR" '[ "$(tr -d "\r" < "$h/.claude/settings.json" | wc -c)" = "$(wc -c < "$h/.claude/settings.json")" ]'
+
+echo "Shared settings: an empty settings.json counts as {}"
+h=$(fresh_home)
+mkdir -p "$h/.claude" && : > "$h/.claude/settings.json"
+HOME=$h "$repo/install.sh" >/dev/null 2>&1
+code=$?
+check "install.sh succeeds" '[ "$code" = 0 ]'
+check "the shared rules are in" 'jq -e ".permissions.deny | index(\"PowerShell\")" "$h/.claude/settings.json" >/dev/null'
+
+echo "Shared settings: a settings.json that is not an object is refused"
+h=$(fresh_home)
+mkdir -p "$h/.claude" && echo '[]' > "$h/.claude/settings.json"
+HOME=$h "$repo/install.sh" >/dev/null 2>&1
+code=$?
+check "install.sh fails" '[ "$code" != 0 ]'
+check "the file is untouched" '[ "$(tr -d "\r\n " < "$h/.claude/settings.json")" = "[]" ]'
+
+echo "Shared settings: a value of another type is reported, not silently kept"
+h=$(fresh_home)
+mkdir -p "$h/.claude" && echo '{ "permissions": { "deny": "PowerShell" } }' > "$h/.claude/settings.json"
+out=$(HOME=$h "$repo/install.sh" 2>&1)
+check "a warning names permissions.deny" 'echo "$out" | grep -q "WARNING.*permissions.deny"'
+
 echo "A correct link with a relative path is left alone"
 h=$(fresh_home)
 HOME=$h "$repo/install.sh" >/dev/null 2>&1
