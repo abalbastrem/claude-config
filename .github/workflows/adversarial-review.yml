@@ -119,11 +119,14 @@ jobs:
               findings; it never approves a decision.
 
             Do not post anything yourself. Your final answer IS the comment, and a later
-            step posts it as is. Write it in markdown, in the language the project's
-            `CLAUDE.md` is written in (if the project has none, the language of the shared
-            `CLAUDE.md`): a verdict (passes / does not pass), then findings prioritized from
-            most to least severe, each with file and line. End with one line, in that same
-            language, saying: "> Advisory review: it does not block the merge."
+            step posts it as is. Write it in markdown, all of it in one language: the one
+            most of the prose of the working directory's `CLAUDE.md` is written in (the
+            PR's base, so a PR cannot change it), or, if there is none, the one of
+            `${{ runner.temp }}/claude-config/CLAUDE.md`. Quoted names such as
+            «Decisions preses» stay as they are. Start with a verdict (passes / does not
+            pass, in that language), then the findings from most to least severe, each with
+            file and line. End with one line, in that language, saying: "> Advisory review:
+            it does not block the merge."
           claude_args: |
             --model sonnet
             --max-turns 30
