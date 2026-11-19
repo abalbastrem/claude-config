@@ -154,6 +154,15 @@ check "the error names permissions.deny" 'echo "$out" | grep -q "^ERROR" && echo
 check "settings.json is untouched" '[ "$(jq -c . "$h/.claude/settings.json" | tr -d "\r")" = "{\"permissions\":{\"deny\":\"PowerShell\"}}" ]'
 check "no link was created" '[ -z "$(find "$h/.claude" -type l)" ]'
 
+echo "Shared settings: a single value that differs from the shared one stops everything"
+h=$(fresh_home)
+mkdir -p "$h/.claude" && echo '{ "statusLine": { "type": "command", "command": "bash other.sh" } }' > "$h/.claude/settings.json"
+out=$(HOME=$h "$repo/install.sh" 2>&1)
+code=$?
+check "install.sh fails" '[ "$code" != 0 ]'
+check "the error names statusLine.command" 'echo "$out" | grep -q "^ERROR" && echo "$out" | grep -q "statusLine.command"'
+check "settings.json is untouched" '[ "$(jq -r .statusLine.command "$h/.claude/settings.json" | tr -d "\r")" = "bash other.sh" ]'
+
 echo "Shared settings: a hook with a command that is not text does not break the merge"
 h=$(fresh_home)
 mkdir -p "$h/.claude" && echo '{ "hooks": { "Stop": [ { "hooks": [ { "type": "command", "command": null } ] } ] } }' > "$h/.claude/settings.json"

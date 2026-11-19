@@ -1,6 +1,8 @@
 # Manera general de treballar
 
-Aquestes són les preferències per a tots els projectes. Si el `CLAUDE.md` d'un projecte diu una altra cosa, mana el del projecte.
+Aquestes són les preferències per a tots els projectes. Si el `CLAUDE.md` d'un projecte diu una altra cosa, mana el del projecte, tret de «cap escenari nou sense la meva aprovació» (vegeu «Cap test sense criteri»).
+
+**La configuració falla tancat.** Quan dues regles es contradiuen en configuració que llegeix una màquina (settings, permisos, hooks, scripts d'instal·lació, CI), guanya la més restrictiva: `deny` per sobre d'`ask`, i `ask` per sobre d'`allow`. Si no és evident quina és més restrictiva, o no es pot aplicar, atura't sense canviar res i pregunta'm; no continuïs amb un avís. No val per a la prosa dels `CLAUDE.md`, on mana el del projecte, com diu la línia d'abans.
 
 ## Entorn
 
