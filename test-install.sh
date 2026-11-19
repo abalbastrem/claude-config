@@ -150,7 +150,7 @@ mkdir -p "$h/.claude" && echo '{ "permissions": { "deny": "PowerShell" } }' > "$
 out=$(HOME=$h "$repo/install.sh" 2>&1)
 code=$?
 check "install.sh fails" '[ "$code" != 0 ]'
-check "the error names permissions.deny" 'echo "$out" | grep -q "ERROR.*permissions.deny"'
+check "the error names permissions.deny" 'echo "$out" | grep -q "^ERROR" && echo "$out" | grep -q "permissions.deny"'
 check "settings.json is untouched" '[ "$(jq -c . "$h/.claude/settings.json" | tr -d "\r")" = "{\"permissions\":{\"deny\":\"PowerShell\"}}" ]'
 check "no link was created" '[ -z "$(find "$h/.claude" -type l)" ]'
 
