@@ -1,0 +1,41 @@
+{
+  "permissions": {
+    "deny": [
+      "PowerShell",
+      "Bash(gh pr merge *)",
+      "Bash(gh api *merge*)",
+      "Bash(gh pr review *--approve*)",
+      "Bash(git push *--no-verify*)"
+    ],
+    "ask": [
+      "Bash(gh pr create *)"
+    ]
+  },
+  "hooks": {
+    "PermissionRequest": [
+      { "hooks": [{ "type": "command", "command": "bash {{CLAUDE_CONFIG}}/hooks/notify-sound.sh atencio", "async": true }] }
+    ],
+    "Stop": [
+      { "hooks": [{ "type": "command", "command": "bash {{CLAUDE_CONFIG}}/hooks/notify-sound.sh fi", "async": true }] }
+    ],
+    "SessionStart": [
+      { "hooks": [{ "type": "command", "command": "bash {{CLAUDE_CONFIG}}/hooks/notify-sound.sh inici", "async": true }] }
+    ],
+    "UserPromptSubmit": [
+      { "hooks": [{ "type": "command", "command": "bash {{CLAUDE_CONFIG}}/hooks/prompt-log.sh", "timeout": 10 }] }
+    ]
+  },
+  "statusLine": {
+    "type": "command",
+    "command": "bash ~/.claude/statusline-command.sh"
+  },
+  "autoMode": {
+    "soft_deny": [
+      "Changing a repository's visibility, or deleting a repository, a remote branch other than a merged work branch, or a tag",
+      "Skipping git hooks or verification (git push --no-verify, git commit --no-verify) or force-pushing with plain --force"
+    ],
+    "hard_deny": [
+      "Merging pull requests in any repository (gh pr merge, the GitHub merge API, or merging locally and pushing to the base branch): the user always merges pull requests themselves"
+    ]
+  }
+}

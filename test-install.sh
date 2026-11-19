@@ -17,7 +17,7 @@ trap 'rm -rf "$work"' EXIT
 # A copy of the files install.sh needs, under the temporary folder.
 copy_repo() {
   mkdir -p "$1"
-  cp -R "$source_repo/install.sh" "$source_repo/agents" "$source_repo/skills" "$source_repo/statusline" "$1/"
+  cp -R "$source_repo/install.sh" "$source_repo/settings.shared.json" "$source_repo/agents" "$source_repo/skills" "$source_repo/statusline" "$1/"
   (cd -P "$1" && pwd -P)
 }
 repo=$(copy_repo "$work/repo")
@@ -56,6 +56,33 @@ echo "Second run changes nothing"
 out=$(HOME=$h "$repo/install.sh" 2>&1)
 check "every line says ok" '[ "$(echo "$out" | grep -vc "^ok ")" = 0 ]'
 check "no backup folder" '! ls -d "$h"/.claude/backup-* >/dev/null 2>&1'
+
+echo "Shared settings: created when there are none"
+h=$(fresh_home)
+HOME=$h "$repo/install.sh" >/dev/null 2>&1
+s="$h/.claude/settings.json"
+check "settings.json exists and is JSON" 'jq -e . "$s" >/dev/null 2>&1'
+check "it has the shared deny rules" 'jq -e ".permissions.deny | index(\"Bash(gh pr merge *)\")" "$s" >/dev/null'
+check "hook paths point to the repo" 'jq -r ".hooks.Stop[0].hooks[0].command" "$s" | grep -q "notify-sound.sh fi" && ! grep -q "{{CLAUDE_CONFIG}}" "$s"'
+
+echo "Shared settings: merged into existing ones, keeping everything else"
+h=$(fresh_home)
+mkdir -p "$h/.claude"
+cat > "$h/.claude/settings.json" <<'JSON'
+{ "env": { "MINE": "1" }, "theme": "dark",
+  "permissions": { "deny": ["PowerShell", "Bash(rm -rf *)"], "additionalDirectories": ["/somewhere"] },
+  "autoMode": { "allow": ["my own rule"] } }
+JSON
+HOME=$h "$repo/install.sh" >/dev/null 2>&1
+s="$h/.claude/settings.json"
+check "own keys are kept" '[ "$(jq -r ".env.MINE, .theme, .permissions.additionalDirectories[0], .autoMode.allow[0]" "$s" | tr "\n" " ")" = "1 dark /somewhere my own rule " ]'
+check "own deny rules are kept" 'jq -e ".permissions.deny | index(\"Bash(rm -rf *)\")" "$s" >/dev/null'
+check "shared deny rules are added, none twice" '[ "$(jq "[.permissions.deny[] | select(. == \"PowerShell\")] | length" "$s")" = 1 ] && jq -e ".permissions.deny | index(\"Bash(gh pr merge *)\")" "$s" >/dev/null'
+check "the old settings.json is in the backup" '[ "$(jq -r .env.MINE "$h"/.claude/backup-*/settings.json 2>/dev/null)" = 1 ]'
+before=$(cat "$s")
+out=$(HOME=$h "$repo/install.sh" 2>&1)
+check "a second run leaves it byte for byte" '[ "$(cat "$s")" = "$before" ]'
+check "and says so" 'echo "$out" | grep -q "^ok  *settings.json$"'
 
 echo "A correct link with a relative path is left alone"
 h=$(fresh_home)
