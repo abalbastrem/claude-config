@@ -83,8 +83,8 @@ Offer the live view.
 
 Prepare a project that already uses OpenSpec. Stop and ask at each step that needs a decision; do not make the decisions yourself.
 
-1. **Folder.** Ask where the matrix lives. The default is `docs/traceability`; a Spanish project may prefer `docs/trazabilidad`.
-2. **`config.json`.** Ask which runners the project has and where each one should write its results. Then write:
+1. **Folder.** Ask where the matrix lives. The default is `docs/traceability`; a project may name it in its own language.
+2. **`config.json`.** Ask which runners the project has and where each one should write its results. The tool reads Japa, Vitest and Playwright only (see «Per runner»); any other runner needs a new reader in `matrix.ts` first, so say so and stop. Then write, for example for a backend with Japa and a frontend with Vitest:
 
    ```json
    {
@@ -100,29 +100,10 @@ Prepare a project that already uses OpenSpec. Stop and ask at each step that nee
    }
    ```
 
-   `root` is the folder Japa runs from, so that file paths are relative to the project. Add `<dir>/state.json` to `.gitignore`.
-3. **Results.**
-   - **Japa:** `node ace test --reporters=spec --reporters=ndjson | tee <file> | grep -v '^{'`. The spec output stays readable, and the JSON lines go only to the file. Run it under `bash` with `set -o pipefail`, or the pipeline hides Japa's exit code (`dash`, the default `sh` on Ubuntu CI, has no `pipefail`).
-   - **Levels.** Japa takes the level from the suite: `unit` → unit, `e2e` → e2e, any other suite → public interface. Map other suite names with `"levels": { "<suite>": "<level>" }` in that results entry. Vitest is component and Playwright is e2e, unless the entry sets `"level"`.
-   - **Vitest:** `vitest run --reporter=default --reporter=json --outputFile.json=<file>`.
-   - **Playwright:** `reporter: [['list'], ['json', { outputFile: 'tmp/e2e-results.json' }]]` in `frontend/playwright.config.ts`. Playwright resolves `outputFile` from the config's folder, while the entry is relative to the project root: `{ "runner": "playwright", "file": "frontend/tmp/e2e-results.json" }`. A spec that runs in several projects (browsers) counts as one test with the worst state of its runs; `flaky` (passed on a retry) counts as pass. Projects that are not tests of a scenario, such as an auth setup, go in `"ignoreProjects": ["setup"]`.
+   A results entry's `file` is relative to the project root; `root`, when set, is the folder the runner runs from, so that test file paths come out relative to the project. Add `<dir>/state.json` to `.gitignore`.
+3. **Results.** Make each runner write its machine-readable results to the file in `config.json` while keeping its normal output readable (recipes in «Per runner»).
    - **Stamp first.** The test target starts with `matrix.ts --dir <dir> --stamp`, which records a fingerprint of the specs. With it, `--check` knows when results were produced against other specs, or when a runner was not rerun. Add `<dir>/specs-stamp.json` to `.gitignore` too.
-4. **Branch coverage.**
-   - **Backend (Japa):** add `c8` as a pinned dev dependency, plus a `.c8rc.json` with:
-     - `all: true`;
-     - `include` for the app code;
-     - `exclude` for generated code and tests;
-     - the `json` and `json-summary` reporters to `coverage/`.
-
-     Then prefix the test command with `npx c8`.
-   - **Frontend (Vitest):** add `@vitest/coverage-v8` at the same version as `vitest`. In `test.coverage` set:
-     - `provider: 'v8'`;
-     - `include` for the source;
-     - `exclude` for generated components and tests;
-     - the `json` and `json-summary` reporters.
-
-     Then add `--coverage` to the run.
-   - **Generated code always stays out**, for example shadcn components, generated schemas and registries.
+4. **Branch coverage.** Every layer writes an istanbul `coverage-final.json` covering every source file, loaded or not, with the project's generated files (the ones nobody edits by hand) and the tests out. Recipes in «Per runner».
 5. **Make targets.** Add `CLAUDE_CONFIG ?= $(HOME)/projects/software/claude-config` and the four targets, plus a fifth when it applies. Use the project's language for their names. Quote the tool path in recipes (`node "$(CLAUDE_CONFIG)/tools/matrix/matrix.ts"`): on Windows `$(HOME)` comes with backslashes, which bash eats inside multi-line recipes.
    - `test`: runs every runner, even if one fails, and exits with an error if any failed.
    - `matrix`: runs `matrix.ts`.
@@ -139,10 +120,28 @@ Prepare a project that already uses OpenSpec. Stop and ask at each step that nee
    - The user decides what happens to tests without a scenario. Usually the direction is capability → requirement → scenario → test, so such tests are removed, not given a scenario after the fact.
 10. **Verify.** Run the tests, generate the matrix and show the result. Start the live view only if the user wants it.
 
+## Per runner
+
+**Japa**
+
+- **Results:** with AdonisJS, `node ace test --reporters=spec --reporters=ndjson | tee <file> | grep -v '^{'`. The spec output stays readable, and the JSON lines go only to the file. Run it under `bash` with `set -o pipefail`, or the pipeline hides Japa's exit code (`dash`, the default `sh` on Ubuntu CI, has no `pipefail`).
+- **Level:** from the suite: `unit` → unit, `e2e` → e2e, any other suite → public interface. Map other suite names with `"levels": { "<suite>": "<level>" }` in that results entry.
+- **Coverage:** `c8` as a pinned dev dependency, with a `.c8rc.json` that sets `all: true`, `include` for the app code, `exclude` for generated code and tests, and the `json` and `json-summary` reporters to `coverage/`. Prefix the test command with `npx c8`. With c8 (V8 coverage), every block V8 measures counts as a branch, including the continuation of an `await`: do not compare that figure directly with istanbul-instrumented layers.
+
+**Vitest**
+
+- **Results:** `vitest run --reporter=default --reporter=json --outputFile.json=<file>`.
+- **Level:** component, unless the entry sets `"level"`.
+- **Coverage:** `@vitest/coverage-v8` at the same version as `vitest`. In `test.coverage`, set `provider: 'v8'`, `include` for the source, `exclude` for generated code and tests, and the `json` and `json-summary` reporters. Add `--coverage` to the run.
+
+**Playwright**
+
+- **Results:** `reporter: [['list'], ['json', { outputFile: 'tmp/e2e-results.json' }]]` in `playwright.config.ts`. Playwright resolves `outputFile` from the config's folder, while the entry is relative to the project root.
+- **Level:** e2e, unless the entry sets `"level"`. A spec that runs in several projects (browsers) counts as one test with the worst state of its runs; `flaky` (passed on a retry) counts as pass. Projects that are not tests of a scenario, such as an auth setup, go in `"ignoreProjects": ["setup"]`.
+- **Coverage:** none: the E2E run in processes apart, and what they go through is already covered by the other levels.
+
 ## Notes
 
 - Needs Node 24 or later, which runs the TypeScript directly.
-- The tool warns when the claude-config checkout it runs from is not on its default branch or has uncommitted changes anywhere, because that changes what every project's check does.
+- The tool runs from the claude-config checkout as it stands, so it warns when that checkout is not on its default branch or has uncommitted changes: that changes what every project's check does.
 - The tool has no tests of its own on purpose: it only displays the project's tests.
-- The tool and the hooks run from the claude-config folder as it stands. Keep that folder on `main` when you are not working on it.
-- With c8 (V8 coverage), every block V8 measures counts as a branch, including the continuation of an `await`. Do not compare that figure directly with istanbul-instrumented layers.

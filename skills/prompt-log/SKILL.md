@@ -30,8 +30,8 @@ Each entry looks like this:
 ```
 ````
 
-If `prompts.md` already uses the Spanish labels `**Modelo:**` / `**Herramienta:**` (for example,
-a course template), the hook keeps those labels instead, so the file stays consistent.
+If `prompts.md` already uses the Spanish labels `**Modelo:**` / `**Herramienta:**`, the hook keeps
+those labels instead, so the file stays consistent.
 
 The hook never logs:
 
@@ -46,12 +46,10 @@ Read `$ARGUMENTS`. If it is empty, treat it as `status`.
 
 1. Create `.claude/prompt-log.active` (empty file).
 2. If `prompts.md` does not exist, create it with a `# Prompts` heading.
-3. Only if `prompts.md` comes from a template that ships a placeholder entry, delete that
-   placeholder so it isn't numbered as a real prompt. Known case, the AI4Devs course template:
-   the `## Prompt 1` whose code block starts with `Este es el ejemplo. Bórralo.`, from its
-   heading through its `**Qué salió:**` line, plus the
-   `Borra el ejemplo de abajo cuando escribas el primero.` line. Leave the rest of the
-   template text untouched. If there is no placeholder, skip this step.
+3. If `prompts.md` comes from a template that ships an example entry (a `## Prompt` that says
+   it is an example, or asks to be deleted), it would be numbered as a real prompt. Show it to
+   the user and ask whether to delete it, together with any line that refers to it. Leave the
+   rest of the template untouched. If there is no example entry, skip this step.
 4. Tell the user, in one or two lines, that logging is on, that the next prompt is the first
    one recorded, and that adding `#nolog` anywhere in a prompt skips it.
 
