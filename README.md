@@ -20,7 +20,7 @@ La resta (agents, skills i la barra d'estat) l'enllaça `install.sh`. Claude Cod
 ./install.sh
 ```
 
-Crea `~/.claude/agents`, `~/.claude/skills/matrix`, `~/.claude/skills/prompt-log` i `~/.claude/statusline-command.sh` com a enllaços cap a aquest repo. És idempotent: es pot tornar a executar després de clonar o quan s'hi afegeixi un enllaç. El que ja hi hagués i no fos l'enllaç bo es mou a una carpeta pròpia, `~/.claude/backup-AAAAMMDD-HHMMSS-XXXX/`, i mai no s'esborra. Si un enllaç antic apuntava a un altre lloc, el log diu on.
+Crea com a enllaços cap a aquest repo `~/.claude/agents`, una carpeta `~/.claude/skills/<nom>` per cada skill de `skills/` i `~/.claude/statusline-command.sh`. És idempotent: es pot tornar a executar després de clonar o quan s'hi afegeixi un enllaç. El que ja hi hagués i no fos l'enllaç bo es mou a una carpeta pròpia, `~/.claude/backup-AAAAMMDD-HHMMSS-XXXX/`, i mai no s'esborra. Si un enllaç antic apuntava a un altre lloc, el log diu on.
 
 Abans de tocar res, comprova que hi són tots els fitxers del repo. També comprova que ni `~/.claude` ni `~/.claude/skills` siguin enllaços: si ho fossin, escriuria a través seu, potser dins d'aquest mateix repo, i per això s'atura.
 
@@ -145,4 +145,9 @@ I el secret `CLAUDE_CODE_OAUTH_TOKEN` (de `claude setup-token`) a *Settings → 
 
 ## Skills
 
-- `skills/prompt-log/`: activa i desactiva el registre de prompts (`/prompt-log on|off|status`). Claude Code només llegeix skills de `~/.claude/skills/`, on `install.sh` l'enllaça. Afegeix `.claude/prompt-log.active` al `.gitignore` de cada projecte on la facis servir.
+Claude Code només llegeix skills d'usuari de `~/.claude/skills/`, on `install.sh` les enllaça. Si un projecte té una skill amb el mateix nom, mana la del projecte.
+
+- `skills/commit/`: un commit convencional amb el que hi ha a l'*staging*, en l'idioma del `CLAUDE.md` del projecte.
+- `skills/priority-ticket/`: agafa el tiquet de Jira de més prioritat assignat a l'usuari i en comença la feina. Mou el tiquet segons la regla «Jira» del `CLAUDE.md`.
+- `skills/matrix/`: munta i fa servir la matriu de traçabilitat (vegeu «Matriu de traçabilitat»).
+- `skills/prompt-log/`: activa i desactiva el registre de prompts (`/prompt-log on|off|status`). Afegeix `.claude/prompt-log.active` al `.gitignore` de cada projecte on la facis servir.

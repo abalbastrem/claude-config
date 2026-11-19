@@ -46,6 +46,8 @@ links=(
   "agents:agents"
   "skills/matrix:skills/matrix"
   "skills/prompt-log:skills/prompt-log"
+  "skills/commit:skills/commit"
+  "skills/priority-ticket:skills/priority-ticket"
   "statusline-command.sh:statusline/statusline-command.sh"
 )
 
