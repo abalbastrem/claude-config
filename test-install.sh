@@ -144,11 +144,35 @@ for v in '[]' 'null'; do
   check "$v: the file is untouched" '[ "$(tr -d "\r\n " < "$h/.claude/settings.json")" = "$v" ]'
 done
 
-echo "Shared settings: a value of another type is reported, not silently kept"
+echo "Shared settings: a value of another type stops everything, the stricter rule wins"
 h=$(fresh_home)
 mkdir -p "$h/.claude" && echo '{ "permissions": { "deny": "PowerShell" } }' > "$h/.claude/settings.json"
 out=$(HOME=$h "$repo/install.sh" 2>&1)
-check "a warning names permissions.deny" 'echo "$out" | grep -q "WARNING.*permissions.deny"'
+code=$?
+check "install.sh fails" '[ "$code" != 0 ]'
+check "the error names permissions.deny" 'echo "$out" | grep -q "ERROR.*permissions.deny"'
+check "settings.json is untouched" '[ "$(jq -c . "$h/.claude/settings.json" | tr -d "\r")" = "{\"permissions\":{\"deny\":\"PowerShell\"}}" ]'
+check "no link was created" '[ -z "$(find "$h/.claude" -type l)" ]'
+
+echo "Shared settings: a hook with a command that is not text does not break the merge"
+h=$(fresh_home)
+mkdir -p "$h/.claude" && echo '{ "hooks": { "Stop": [ { "hooks": [ { "type": "command", "command": null } ] } ] } }' > "$h/.claude/settings.json"
+HOME=$h "$repo/install.sh" >/dev/null 2>&1
+code=$?
+check "install.sh succeeds" '[ "$code" = 0 ]'
+check "the shared Stop group is added" '[ "$(count .hooks.Stop "$h/.claude/settings.json")" = 2 ]'
+
+echo "Shared settings: with the repo under HOME, ~, \${HOME} and \$HOME forms all count"
+h=$(fresh_home)
+inner=$(copy_repo "$h/cc")
+for form in '~/cc' '${HOME}/cc' '$HOME/cc' "\"\$HOME/cc\""; do
+  mkdir -p "$h/.claude"
+  jq -n --arg c "bash $form/hooks/notify-sound.sh fi" \
+    '{ hooks: { Stop: [ { hooks: [ { type: "command", command: $c, async: true } ] } ] } }' > "$h/.claude/settings.json"
+  HOME=$h "$inner/install.sh" >/dev/null 2>&1
+  check "$form: Stop still has one hook group" '[ "$(count .hooks.Stop "$h/.claude/settings.json")" = 1 ]'
+done
+check "new hooks use \$HOME" 'jq -r ".hooks.UserPromptSubmit[0].hooks[0].command" "$h/.claude/settings.json" | grep -q "^bash \"\$HOME/cc/hooks/prompt-log.sh\"$"'
 
 echo "A correct link with a relative path is left alone"
 h=$(fresh_home)
