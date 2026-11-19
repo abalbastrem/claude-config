@@ -84,10 +84,11 @@ for dir in "$claude" "$claude/skills"; do
 done
 # settings.json can't be a link: Claude Code rewrites it, and it holds things of
 # this machine only. So the shareable part, settings.shared.json, is merged into
-# it: objects key by key, arrays adding only what is missing, and a value the
-# user already has wins. A value of another type than the shared one stops
-# everything before any change: the shared value may be a restrictive rule, and
-# the stricter rule must win, so the user decides. A shared hook group counts as
+# it: objects key by key, and arrays adding only what is missing, so a shared
+# rule in a list is always applied. A single value that differs from the shared
+# one, or a value of another type, stops everything before any change: which
+# one is stricter is not obvious, and the stricter must win, so the user decides
+# (global CLAUDE.md: tools and configuration fail closed). A shared hook group counts as
 # present when a group with the same matcher already holds all its hooks (whole
 # hooks, async and timeout included), with this repo's path written as ~/…,
 # $HOME/…, ${HOME}/…, /c/…, C:/…, c:/…, C:\… or the 8.3 short name, quoted or
@@ -128,6 +129,8 @@ jq_merge='
     if ($a|type) == "object" and ($b|type) == "object" then ($b|keys_unsorted[]) as $k | clashes($a[$k]; $b[$k]; $p + [$k])
     elif $a == null or $b == null then empty
     elif ($a|type) != ($b|type) then $p | join(".")
+    elif ($a|type) == "array" then empty
+    elif $a != $b then $p | join(".")
     else empty end;
   ($s[0] | walk(if type == "string" then split("{{CLAUDE_CONFIG}}") | join($p) else . end)) as $shared'
 merged=$(jq --arg p "$repo_path" --slurpfile s "$shared" "$jq_merge | merge(.; \$shared)" <<<"$current") \
@@ -135,9 +138,9 @@ merged=$(jq --arg p "$repo_path" --slurpfile s "$shared" "$jq_merge | merge(.; \
 clash=$(jq -r --arg p "$repo_path" --slurpfile s "$shared" "$jq_merge | clashes(.; \$shared; [])" <<<"$current" | tr -d '\r') \
   || { echo "ERROR: could not compare $shared with $settings." >&2; exit 1; }
 if [ -n "$clash" ]; then
-  echo "ERROR: in $settings these keys have another type than in settings.shared.json:" >&2
+  echo "ERROR: in $settings these keys have another value or type than in settings.shared.json:" >&2
   while read -r path; do echo "  - $path" >&2; done <<<"$clash"
-  echo "  The shared value may be a restrictive rule, so nothing was changed." >&2
+  echo "  Either may be the stricter rule, so nothing was changed." >&2
   echo "  Decide which one stays, fix settings.json and run this again." >&2
   exit 1
 fi
