@@ -14,17 +14,27 @@ Claude Code llegeix `~/.claude/CLAUDE.md` a tots els projectes. Aquest fitxer no
 
 Per comprovar que s'aplica, executa `/memory` dins de Claude Code. El `CLAUDE.md` s'importa en lloc d'enllaçar-se perquè `@` és el mecanisme propi de Claude Code i funciona a qualsevol màquina, sense cap requisit.
 
-La resta (agents, skills i la barra d'estat) l'enllaça `install.sh`. Claude Code només llegeix aquestes peces de `~/.claude/`, i amb un enllaç simbòlic llegeix el fitxer del repo tal com està, en lloc d'una còpia que es pot desfasar:
+La resta (agents, skills i la barra d'estat) l'enllaça `install.sh`, que també hi fusiona els settings compartits (vegeu més avall). Claude Code només llegeix aquestes peces de `~/.claude/`, i amb un enllaç simbòlic llegeix el fitxer del repo tal com està, en lloc d'una còpia que es pot desfasar:
 
 ```bash
 ./install.sh
 ```
 
-Crea com a enllaços cap a aquest repo `~/.claude/agents`, una carpeta `~/.claude/skills/<nom>` per cada skill de `skills/` (una skill nova s'afegeix a la llista de `install.sh` i a `test-install.sh`) i `~/.claude/statusline-command.sh`. És idempotent: es pot tornar a executar després de clonar o quan s'hi afegeixi un enllaç. El que ja hi hagués i no fos l'enllaç bo es mou a una carpeta pròpia, `~/.claude/backup-AAAAMMDD-HHMMSS-XXXX/`, i mai no s'esborra. Si un enllaç antic apuntava a un altre lloc, el log diu on.
+Necessita `jq`. Crea com a enllaços cap a aquest repo `~/.claude/agents`, una carpeta `~/.claude/skills/<nom>` per cada skill de `skills/` (una skill nova s'afegeix a la llista de `install.sh` i a `test-install.sh`) i `~/.claude/statusline-command.sh`. És idempotent: es pot tornar a executar després de clonar o quan s'hi afegeixi un enllaç. El que ja hi hagués i no fos l'enllaç bo es mou a una carpeta pròpia, `~/.claude/backup-AAAAMMDD-HHMMSS-XXXX/`, i mai no s'esborra. Si un enllaç antic apuntava a un altre lloc, el log diu on.
 
 Abans de tocar res, comprova que hi són tots els fitxers del repo. També comprova que ni `~/.claude` ni `~/.claude/skills` siguin enllaços: si ho fossin, escriuria a través seu, potser dins d'aquest mateix repo, i per això s'atura.
 
-L'enllaç de la barra d'estat no l'activa per si sol: `~/.claude/settings.json` ha de tenir `"statusLine": { "type": "command", "command": "bash ~/.claude/statusline-command.sh" }`.
+**Settings.** El `~/.claude/settings.json` no s'enllaça: Claude Code el reescriu, i hi ha coses d'aquesta màquina, com rutes locals o regles de l'auto mode que parlen dels teus repos. Per això `settings.shared.json` porta només el que és compartible: els permisos `deny` i `ask`, els hooks, la barra d'estat i les regles generals de l'auto mode. `install.sh` el fusiona al teu `settings.json`:
+
+- objecte per objecte, i a les llistes només hi afegeix el que falta;
+- un grup de hooks compartit compta com a present si ja n'hi ha un amb el mateix `matcher` que conté tots els seus hooks, sencers (`async` i `timeout` inclosos), amb la ruta d'aquest repo escrita com a `~/…`, `$HOME/…`, `${HOME}/…`, `/c/…`, `C:/…`, `c:/…`, `C:\…` o el nom curt de Windows; un script del mateix nom d'un altre projecte no compta;
+- un valor que ja tens guanya, però si és d'un altre tipus que el compartit (per exemple, `deny` com a text i no com a llista), s'atura abans de tocar res i diu quina clau és: la regla compartida pot ser restrictiva, i la més restrictiva ha de guanyar, així que ho decideixes tu;
+- `{{CLAUDE_CONFIG}}` es converteix en la ruta d'aquest repo, entre cometes i com a `$HOME/…` si és dins del `HOME`;
+- un `settings.json` buit compta com a `{}`, però si no és un objecte JSON s'atura sense tocar res;
+- abans d'escriure, en desa una còpia al backup, i si no pot escriure, ho diu i el deixa com era;
+- si no hi ha res a afegir, no el toca.
+
+Per treure una regla compartida, treu-la de `settings.shared.json` **i** del teu `settings.json`: la fusió només afegeix.
 
 **Per sistema:**
 
@@ -37,7 +47,8 @@ L'enllaç de la barra d'estat no l'activa per si sol: `~/.claude/settings.json` 
 
 - `hooks/notify-sound.sh`: fa sonar un avís de Windows quan Claude Code fa una pregunta, demana un permís o acaba. Necessita Windows i `python` al `PATH`.
 - `hooks/prompt-log.sh`: mentre existeix `.claude/prompt-log.active` al projecte, afegeix cada prompt a `prompts.md` (número, model, eina i el prompt literal). Si el fitxer ja fa servir les etiquetes en castellà `**Modelo:**` / `**Herramienta:**`, les manté; si no, escriu `**Model:**` / `**Tool:**`. El fa servir la skill `prompt-log`. Necessita `jq`.
-- `hooks/settings-hooks.json`: la definició dels hooks. Claude Code no pot importar-la, així que cal copiar-ne el bloc `hooks` a `~/.claude/settings.json`.
+
+Els hooks es registren a `settings.shared.json`, i `install.sh` els afegeix al `settings.json`.
 
 Els hooks, el `CLAUDE.md` i tot el que enllaça `install.sh` s'executen des d'aquesta carpeta tal com està, no des d'una còpia: si canvies de branca, canvia el que fa Claude a tots els projectes. Deixa la carpeta a `main` quan no hi estiguis treballant.
 

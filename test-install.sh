@@ -17,7 +17,7 @@ trap 'rm -rf "$work"' EXIT
 # A copy of the files install.sh needs, under the temporary folder.
 copy_repo() {
   mkdir -p "$1"
-  cp -R "$source_repo/install.sh" "$source_repo/agents" "$source_repo/skills" "$source_repo/statusline" "$1/"
+  cp -R "$source_repo/install.sh" "$source_repo/settings.shared.json" "$source_repo/agents" "$source_repo/skills" "$source_repo/statusline" "$1/"
   (cd -P "$1" && pwd -P)
 }
 repo=$(copy_repo "$work/repo")
@@ -56,6 +56,123 @@ echo "Second run changes nothing"
 out=$(HOME=$h "$repo/install.sh" 2>&1)
 check "every line says ok" '[ "$(echo "$out" | grep -vc "^ok ")" = 0 ]'
 check "no backup folder" '! ls -d "$h"/.claude/backup-* >/dev/null 2>&1'
+
+echo "Shared settings: created when there are none"
+h=$(fresh_home)
+HOME=$h "$repo/install.sh" >/dev/null 2>&1
+s="$h/.claude/settings.json"
+check "settings.json exists and is JSON" 'jq -e . "$s" >/dev/null 2>&1'
+check "it has the shared deny rules" 'jq -e ".permissions.deny | index(\"Bash(gh pr merge *)\")" "$s" >/dev/null'
+check "hook paths point to the repo" 'jq -r ".hooks.Stop[0].hooks[0].command" "$s" | grep -q "/hooks/notify-sound.sh\" fi" && ! grep -q "{{CLAUDE_CONFIG}}" "$s"'
+
+echo "Shared settings: merged into existing ones, keeping everything else"
+h=$(fresh_home)
+mkdir -p "$h/.claude"
+cat > "$h/.claude/settings.json" <<'JSON'
+{ "env": { "MINE": "1" }, "theme": "dark",
+  "permissions": { "deny": ["PowerShell", "Bash(rm -rf *)"], "additionalDirectories": ["/somewhere"] },
+  "autoMode": { "allow": ["my own rule"] } }
+JSON
+HOME=$h "$repo/install.sh" >/dev/null 2>&1
+s="$h/.claude/settings.json"
+check "own keys are kept" '[ "$(jq -r ".env.MINE, .theme, .permissions.additionalDirectories[0], .autoMode.allow[0]" "$s" | tr -d "\r" | tr "\n" "|")" = "1|dark|/somewhere|my own rule|" ]'
+check "own deny rules are kept" 'jq -e ".permissions.deny | index(\"Bash(rm -rf *)\")" "$s" >/dev/null'
+check "shared deny rules are added, none twice" '[ "$(jq "[.permissions.deny[] | select(. == \"PowerShell\")] | length" "$s")" = 1 ] && jq -e ".permissions.deny | index(\"Bash(gh pr merge *)\")" "$s" >/dev/null'
+check "the old settings.json is in the backup" '[ "$(jq -r .env.MINE "$h"/.claude/backup-*/settings.json 2>/dev/null)" = 1 ]'
+before=$(cat "$s")
+out=$(HOME=$h "$repo/install.sh" 2>&1)
+check "a second run leaves it byte for byte" '[ "$(cat "$s")" = "$before" ]'
+check "and says so" 'echo "$out" | grep -q "^ok  *settings.json$"'
+
+count() { jq "$1 | length" "$2" | tr -d "\r"; }
+
+echo "Shared settings: a hook of this repo, written another way, is not added twice"
+h=$(fresh_home)
+mkdir -p "$h/.claude"
+jq -n --arg c "bash $repo/hooks/notify-sound.sh fi" \
+  '{ hooks: { Stop: [ { hooks: [ { type: "command", command: $c, async: true } ] } ] } }' > "$h/.claude/settings.json"
+HOME=$h "$repo/install.sh" >/dev/null 2>&1
+check "Stop still has one hook group" '[ "$(count .hooks.Stop "$h/.claude/settings.json")" = 1 ]'
+check "the other hooks are added" '[ "$(count .hooks.UserPromptSubmit "$h/.claude/settings.json")" = 1 ]'
+
+echo "Shared settings: a hook of another project with the same script name does not count"
+h=$(fresh_home)
+mkdir -p "$h/.claude"
+cat > "$h/.claude/settings.json" <<'JSON'
+{ "hooks": { "UserPromptSubmit": [ { "hooks": [ { "type": "command", "command": "bash /proj/hooks/prompt-log.sh", "timeout": 10 } ] } ] } }
+JSON
+HOME=$h "$repo/install.sh" >/dev/null 2>&1
+check "the shared prompt-log hook is added next to it" '[ "$(count .hooks.UserPromptSubmit "$h/.claude/settings.json")" = 2 ]'
+
+echo "Shared settings: a hook of this repo under a matcher does not count for one without"
+h=$(fresh_home)
+mkdir -p "$h/.claude"
+jq -n --arg c "bash $repo/hooks/notify-sound.sh fi" \
+  '{ hooks: { Stop: [ { matcher: "x", hooks: [ { type: "command", command: $c, async: true } ] } ] } }' > "$h/.claude/settings.json"
+HOME=$h "$repo/install.sh" >/dev/null 2>&1
+check "the shared Stop group is added" '[ "$(count .hooks.Stop "$h/.claude/settings.json")" = 2 ]'
+
+echo "Shared settings: a group that already holds the shared hook among others counts"
+h=$(fresh_home)
+mkdir -p "$h/.claude"
+jq -n --arg c "bash $repo/hooks/prompt-log.sh" \
+  '{ hooks: { UserPromptSubmit: [ { hooks: [ { type: "command", command: $c, timeout: 10 }, { type: "command", command: "echo mine" } ] } ] } }' > "$h/.claude/settings.json"
+HOME=$h "$repo/install.sh" >/dev/null 2>&1
+check "no second group" '[ "$(count .hooks.UserPromptSubmit "$h/.claude/settings.json")" = 1 ]'
+
+echo "Shared settings: hook paths are quoted"
+h=$(fresh_home)
+HOME=$h "$repo/install.sh" >/dev/null 2>&1
+check "the script path is in double quotes" 'jq -r ".hooks.Stop[0].hooks[0].command" "$h/.claude/settings.json" | grep -q "^bash \".*/hooks/notify-sound.sh\" fi"'
+check "settings.json has no CR" '[ "$(tr -d "\r" < "$h/.claude/settings.json" | wc -c)" = "$(wc -c < "$h/.claude/settings.json")" ]'
+
+echo "Shared settings: an empty settings.json counts as {}"
+h=$(fresh_home)
+mkdir -p "$h/.claude" && : > "$h/.claude/settings.json"
+HOME=$h "$repo/install.sh" >/dev/null 2>&1
+code=$?
+check "install.sh succeeds" '[ "$code" = 0 ]'
+check "the shared rules are in" 'jq -e ".permissions.deny | index(\"PowerShell\")" "$h/.claude/settings.json" >/dev/null'
+
+echo "Shared settings: a settings.json that is not an object is refused"
+h=$(fresh_home)
+for v in '[]' 'null'; do
+  mkdir -p "$h/.claude" && echo "$v" > "$h/.claude/settings.json"
+  HOME=$h "$repo/install.sh" >/dev/null 2>&1
+  code=$?
+  check "$v: install.sh fails" '[ "$code" != 0 ]'
+  check "$v: the file is untouched" '[ "$(tr -d "\r\n " < "$h/.claude/settings.json")" = "$v" ]'
+done
+
+echo "Shared settings: a value of another type stops everything, the stricter rule wins"
+h=$(fresh_home)
+mkdir -p "$h/.claude" && echo '{ "permissions": { "deny": "PowerShell" } }' > "$h/.claude/settings.json"
+out=$(HOME=$h "$repo/install.sh" 2>&1)
+code=$?
+check "install.sh fails" '[ "$code" != 0 ]'
+check "the error names permissions.deny" 'echo "$out" | grep -q "^ERROR" && echo "$out" | grep -q "permissions.deny"'
+check "settings.json is untouched" '[ "$(jq -c . "$h/.claude/settings.json" | tr -d "\r")" = "{\"permissions\":{\"deny\":\"PowerShell\"}}" ]'
+check "no link was created" '[ -z "$(find "$h/.claude" -type l)" ]'
+
+echo "Shared settings: a hook with a command that is not text does not break the merge"
+h=$(fresh_home)
+mkdir -p "$h/.claude" && echo '{ "hooks": { "Stop": [ { "hooks": [ { "type": "command", "command": null } ] } ] } }' > "$h/.claude/settings.json"
+HOME=$h "$repo/install.sh" >/dev/null 2>&1
+code=$?
+check "install.sh succeeds" '[ "$code" = 0 ]'
+check "the shared Stop group is added" '[ "$(count .hooks.Stop "$h/.claude/settings.json")" = 2 ]'
+
+echo "Shared settings: with the repo under HOME, ~, \${HOME} and \$HOME forms all count"
+h=$(fresh_home)
+inner=$(copy_repo "$h/cc")
+for form in '~/cc' '${HOME}/cc' '$HOME/cc' "\"\$HOME/cc\""; do
+  mkdir -p "$h/.claude"
+  jq -n --arg c "bash $form/hooks/notify-sound.sh fi" \
+    '{ hooks: { Stop: [ { hooks: [ { type: "command", command: $c, async: true } ] } ] } }' > "$h/.claude/settings.json"
+  HOME=$h "$inner/install.sh" >/dev/null 2>&1
+  check "$form: Stop still has one hook group" '[ "$(count .hooks.Stop "$h/.claude/settings.json")" = 1 ]'
+done
+check "new hooks use \$HOME" 'jq -r ".hooks.UserPromptSubmit[0].hooks[0].command" "$h/.claude/settings.json" | grep -q "^bash \"\$HOME/cc/hooks/prompt-log.sh\"$"'
 
 echo "A correct link with a relative path is left alone"
 h=$(fresh_home)

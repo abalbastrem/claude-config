@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # So d'avís per als hooks de Claude Code: "inici" quan arrenca, "atencio" per a preguntes i permisos, "fi" quan acaba.
 cat > /dev/null
+# Només a Windows (Git Bash): enlloc més no hi ha cygpath ni winsound, i surt sense fer res.
+command -v cygpath > /dev/null 2>&1 || exit 0
 dir="$(cd "$(dirname "$0")" && pwd)/sounds"
 case "$1" in
   inici)   so="$dir/636652__cogfirestudios__ui-app.wav" ;;

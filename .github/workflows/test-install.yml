@@ -12,6 +12,7 @@ on:
       - agents/**
       - skills/**
       - statusline/**
+      - settings.shared.json
       - .github/workflows/test-install.yml
 
 permissions:
