@@ -36,7 +36,7 @@ L'enllaç de la barra d'estat no l'activa per si sol: `~/.claude/settings.json` 
 ## Hooks
 
 - `hooks/notify-sound.sh`: fa sonar un avís de Windows quan Claude Code fa una pregunta, demana un permís o acaba. Necessita Windows i `python` al `PATH`.
-- `hooks/prompt-log.sh`: mentre existeix `.claude/prompt-log.active` al projecte, afegeix cada prompt a `prompts.md` (número, model, eina i el prompt literal). Si el fitxer ja fa servir les etiquetes `**Modelo:**` / `**Herramienta:**` d'una plantilla en castellà, com la del curs AI4Devs, les manté; si no, escriu `**Model:**` / `**Tool:**`. El fa servir la skill `prompt-log`. Necessita `jq`.
+- `hooks/prompt-log.sh`: mentre existeix `.claude/prompt-log.active` al projecte, afegeix cada prompt a `prompts.md` (número, model, eina i el prompt literal). Si el fitxer ja fa servir les etiquetes en castellà `**Modelo:**` / `**Herramienta:**`, les manté; si no, escriu `**Model:**` / `**Tool:**`. El fa servir la skill `prompt-log`. Necessita `jq`.
 - `hooks/settings-hooks.json`: la definició dels hooks. Claude Code no pot importar-la, així que cal copiar-ne el bloc `hooks` a `~/.claude/settings.json`.
 
 Els hooks, el `CLAUDE.md` i tot el que enllaça `install.sh` s'executen des d'aquesta carpeta tal com està, no des d'una còpia: si canvies de branca, canvia el que fa Claude a tots els projectes. Deixa la carpeta a `main` quan no hi estiguis treballant.
@@ -53,12 +53,12 @@ Els sons són a `hooks/sounds/` i vénen de Freesound. Per canviar-los, posa-hi 
 `tools/matrix/` és una eina general que creua, per a qualsevol projecte amb OpenSpec:
 
 - **els escenaris:** la spec viva i els changes en curs, cadascun amb un ID `[SC-n]` únic a tot el repo;
-- **els resultats dels tests:** Japa, Vitest i Playwright. El títol de cada test comença per l'ID del seu escenari;
+- **els resultats dels tests:** de Japa, Vitest i Playwright, els runners que l'eina sap llegir; un altre runner necessita un lector nou a `matrix.ts`. El títol de cada test comença per l'ID del seu escenari;
 - **la cobertura de branques:** global i del codi nou respecte d'una branca base.
 
 Ho fa amb tres fitxers:
 
-- `matrix.ts` genera `matrix.md`, que es versiona i no porta l'estat dels tests, i `state.json`, que no es versiona. Amb `--check` falla si hi ha tests sense escenari, escenaris sense test, en vermell o només omesos, resultats que falten o antics, cap escenari, o si `matrix.md` està desfasat. Els errors de les specs (escenari sense ID, ID o requisit repetit) fan fallar qualsevol mode. La cobertura és informativa i no bloqueja mai.
+- `matrix.ts` genera `matrix.md`, que es versiona i no porta l'estat dels tests, i `state.json`, que no es versiona. Amb `--check` falla si la matriu no està en verd: tests sense escenari, escenaris sense test o en vermell, resultats antics o `matrix.md` desfasat, entre altres. La llista sencera és a la skill `matrix`, «The rules it enforces». La cobertura no bloqueja mai.
 - `matrix.ts --stamp` desa una empremta del contingut de les specs. El target de tests del projecte la crida just abans dels tests, i així el `--check` sap si els resultats són d'unes altres specs o si un runner no s'ha tornat a executar. No es fa per dates: un `pull` o un `touch` que no canvia res no compta.
 - `server.ts` serveix `view.html` (per defecte a `http://localhost:5180`) i la repinta per SSE cada vegada que canvien les specs, els resultats, la cobertura o les classificacions, sense recarregar.
 - **Anàlisi de branques:** la vista llista cada branca sense cobrir, per capa i per fitxer, amb el seu codi i, si ja s'ha classificat, la seva classe (criteri que falta, codi mort o defensiu, decisió tècnica o codi d'una altra Story). Les classificacions viuen al projecte, a `<dir>/branches.json`, versionades i amb la clau fitxer + text de la línia. `matrix.md` en mostra les classificades. La classe la posa l'agent, amb el motiu a `note` i, opcionalment, un `ref` a la discussió, i l'`adversarial-reviewer` comprova que s'aguanti llegint el codi. El que se'n derivi (un escenari nou, esborrar codi) ho decideix l'usuari (vegeu el `CLAUDE.md`, «Cap test sense criteri», i l'[ADR 0002](docs/adr/0002-aprovacio-per-pr.md)).
@@ -71,7 +71,7 @@ node $CLAUDE_CONFIG/tools/matrix/matrix.ts --dir docs/traceability [--check] [--
 node $CLAUDE_CONFIG/tools/matrix/server.ts --dir docs/traceability [--port 5180]
 ```
 
-Per preparar-hi un projecte, la skill `skills/matrix/` (`/matrix setup`) crea la configuració, els targets de `make`, el hook pre-push (typecheck si el projecte en té, tests i `--check`, en aquest ordre; s'activa sol amb `npm install`) i la cobertura, i numera els escenaris. L'assignació de tests a escenaris te la proposa, però la decideixes tu. Com les altres skills, cal copiar-la a `~/.claude/skills/matrix/`.
+Per preparar-hi un projecte, la skill `skills/matrix/` (`/matrix setup`) crea la configuració, els targets de `make`, el hook pre-push (typecheck si el projecte en té, tests i `--check`, en aquest ordre; s'activa sol amb `npm install`) i la cobertura, i numera els escenaris. L'assignació de tests a escenaris te la proposa, però la decideixes tu.
 
 L'eina no té tests propis expressament: només mostra els del projecte. Necessita Node 24 o posterior, que executa el TypeScript directament.
 
@@ -91,13 +91,12 @@ jobs:
     with:
       matrix-dir: docs/traceability
       setup: |
-        cd backend && npm ci && cp .env.example .env && node ace generate:key && node ace migration:run --force
-        cd ../frontend && npm ci && npx playwright install --with-deps chromium
+        npm ci
 ```
 
 Va a `.github/workflows/matrix.yml` del projecte.
 
-- **`setup`** instal·la i prepara el que necessiten els tests. Si el projecte no necessita res, `setup: 'true'`.
+- **`setup`** instal·la i prepara el que necessiten els tests: dependències, fitxers d'entorn, migracions, navegadors dels E2E. Si el projecte no necessita res, `setup: 'true'`.
 - **`test-command`** (per defecte, `make test`) executa tots els runners, primer amb `matrix.ts --stamp`, i deixa els resultats on diu `config.json`. El workflow passa `CLAUDE_CONFIG` amb la ruta de l'eina.
 - **Seguretat:** ni `setup` ni `test-command` han de rebre valors de `github.event.*`, i el disparador ha de ser `pull_request`, mai `pull_request_target`, perquè executa el codi del PR.
 - **Versió:** `@main` només existeix després del merge. L'eina sempre ve de `main`, encara que el workflow es fixi a una altra versió.
