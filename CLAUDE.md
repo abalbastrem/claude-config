@@ -82,7 +82,23 @@ La mètrica és la **cobertura de branques del codi nou de la Story** (el diff d
 
 La cobertura no veu l'altre forat: una branca coberta per un test que no penja de cap criteri. Aquest el busca l'agent `adversarial-reviewer` a cada PR, però és un revisor LLM: redueix el risc, no el garanteix.
 
-Aquestes regles valen igual amb OpenSpec: el `openspec/config.yaml` d'un projecte hi afegeix el que és propi d'aquell projecte, no les repeteix. **«Cap escenari nou sense la meva aprovació» és l'excepció a la norma que mana el projecte:** cap configuració de projecte no la pot relaxar, ni el seu `CLAUDE.md`, ni el `config.yaml` d'OpenSpec, ni un schema. Si en trobes una que ho faci (per exemple, «primer s'afegeix l'escenari a la spec i després el test»), no la segueixis i avisa'm perquè la corregim.
+## OpenSpec
+
+Quan la feina passa per OpenSpec, valen totes les regles d'abans, i aquestes concreten com s'escriu cada artefacte. El `openspec/config.yaml` d'un projecte hi afegeix només el que és propi d'aquell projecte (l'idioma, on viuen el PRD i les Stories, quina és la seva interfície pública), no les repeteix.
+
+- **Un change és una Story**, i l'enllaça si la Story viu fora d'OpenSpec.
+- **Paraules clau:** les de l'RFC 2119 (MUST, MUST NOT; mai SHALL) i les dels escenaris (GIVEN, WHEN, THEN, AND), en anglès, sigui quin sigui l'idioma dels artefactes.
+- **Proposal:** com el PRD, només decisions de producte i el perquè, tan breu com es pugui.
+- **Specs:** només comportament observable des de fora. A una API, la petició i la resposta (estat i cos); a una pantalla, el que una persona veu i pot fer. Res de noms de classes, fitxers ni rutes de codi. Si l'escenari té precondició, va com a GIVEN abans del WHEN. Els escenaris que l'agent redacta en proposar el change són un esborrany fins que reviso el change.
+- **Design:** una decisió tècnica transversal porta el seu ADR, enllaçat des del `design.md`.
+- **Tasks:**
+  - Un grup `##` per requisit, amb una parella de tasques: primer els tests, amb almenys un cas per escenari, verificats en vermell pel motiu esperat; després la implementació, verificada en verd.
+  - Cada tasca de test diu el seu nivell (vegeu «Tests»).
+  - Si un requisit té massa escenaris per a una sessió (orientativament, més de cinc), comprova si barreja comportaments i, si és així, parteix-lo a la spec; si és un de sol, reparteix els escenaris en diverses parelles dins del mateix grup.
+  - La preparació tècnica és la primera tasca del grup que la necessita, mai un grup a part.
+  - L'últim grup és «Tancament» (vegeu «Tancament de la Story»), sense parella test → implementació.
+
+**«Cap escenari nou sense la meva aprovació» és l'excepció a la norma que mana el projecte:** cap configuració de projecte no la pot relaxar, ni el seu `CLAUDE.md`, ni el `config.yaml` d'OpenSpec, ni un schema. Tampoc a `apply`, `update` ni `sync`. Si en trobes una que ho faci (per exemple, «primer s'afegeix l'escenari a la spec i després el test»), no la segueixis i avisa'm perquè la corregim.
 
 ## Git i PR
 
