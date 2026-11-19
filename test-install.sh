@@ -84,15 +84,41 @@ out=$(HOME=$h "$repo/install.sh" 2>&1)
 check "a second run leaves it byte for byte" '[ "$(cat "$s")" = "$before" ]'
 check "and says so" 'echo "$out" | grep -q "^ok  *settings.json$"'
 
-echo "Shared settings: a hook you already have with another path is not added twice"
+count() { jq "$1 | length" "$2" | tr -d "\r"; }
+
+echo "Shared settings: a hook of this repo, written another way, is not added twice"
+h=$(fresh_home)
+mkdir -p "$h/.claude"
+jq -n --arg c "bash $repo/hooks/notify-sound.sh fi" \
+  '{ hooks: { Stop: [ { hooks: [ { type: "command", command: $c, async: true } ] } ] } }' > "$h/.claude/settings.json"
+HOME=$h "$repo/install.sh" >/dev/null 2>&1
+check "Stop still has one hook group" '[ "$(count .hooks.Stop "$h/.claude/settings.json")" = 1 ]'
+check "the other hooks are added" '[ "$(count .hooks.UserPromptSubmit "$h/.claude/settings.json")" = 1 ]'
+
+echo "Shared settings: a hook of another project with the same script name does not count"
 h=$(fresh_home)
 mkdir -p "$h/.claude"
 cat > "$h/.claude/settings.json" <<'JSON'
-{ "hooks": { "Stop": [ { "hooks": [ { "type": "command", "command": "bash /some/other/clone/hooks/notify-sound.sh fi", "async": true } ] } ] } }
+{ "hooks": { "UserPromptSubmit": [ { "hooks": [ { "type": "command", "command": "bash /proj/hooks/prompt-log.sh", "timeout": 10 } ] } ] } }
 JSON
 HOME=$h "$repo/install.sh" >/dev/null 2>&1
-check "Stop still has one hook group" '[ "$(jq ".hooks.Stop | length" "$h/.claude/settings.json" | tr -d "\r")" = 1 ]'
-check "the other hooks are added" '[ "$(jq ".hooks.UserPromptSubmit | length" "$h/.claude/settings.json" | tr -d "\r")" = 1 ]'
+check "the shared prompt-log hook is added next to it" '[ "$(count .hooks.UserPromptSubmit "$h/.claude/settings.json")" = 2 ]'
+
+echo "Shared settings: a hook of this repo under a matcher does not count for one without"
+h=$(fresh_home)
+mkdir -p "$h/.claude"
+jq -n --arg c "bash $repo/hooks/notify-sound.sh fi" \
+  '{ hooks: { Stop: [ { matcher: "x", hooks: [ { type: "command", command: $c, async: true } ] } ] } }' > "$h/.claude/settings.json"
+HOME=$h "$repo/install.sh" >/dev/null 2>&1
+check "the shared Stop group is added" '[ "$(count .hooks.Stop "$h/.claude/settings.json")" = 2 ]'
+
+echo "Shared settings: a group that already holds the shared hook among others counts"
+h=$(fresh_home)
+mkdir -p "$h/.claude"
+jq -n --arg c "bash $repo/hooks/prompt-log.sh" \
+  '{ hooks: { UserPromptSubmit: [ { hooks: [ { type: "command", command: $c, timeout: 10 }, { type: "command", command: "echo mine" } ] } ] } }' > "$h/.claude/settings.json"
+HOME=$h "$repo/install.sh" >/dev/null 2>&1
+check "no second group" '[ "$(count .hooks.UserPromptSubmit "$h/.claude/settings.json")" = 1 ]'
 
 echo "Shared settings: hook paths are quoted"
 h=$(fresh_home)
@@ -110,11 +136,13 @@ check "the shared rules are in" 'jq -e ".permissions.deny | index(\"PowerShell\"
 
 echo "Shared settings: a settings.json that is not an object is refused"
 h=$(fresh_home)
-mkdir -p "$h/.claude" && echo '[]' > "$h/.claude/settings.json"
-HOME=$h "$repo/install.sh" >/dev/null 2>&1
-code=$?
-check "install.sh fails" '[ "$code" != 0 ]'
-check "the file is untouched" '[ "$(tr -d "\r\n " < "$h/.claude/settings.json")" = "[]" ]'
+for v in '[]' 'null'; do
+  mkdir -p "$h/.claude" && echo "$v" > "$h/.claude/settings.json"
+  HOME=$h "$repo/install.sh" >/dev/null 2>&1
+  code=$?
+  check "$v: install.sh fails" '[ "$code" != 0 ]'
+  check "$v: the file is untouched" '[ "$(tr -d "\r\n " < "$h/.claude/settings.json")" = "$v" ]'
+done
 
 echo "Shared settings: a value of another type is reported, not silently kept"
 h=$(fresh_home)
