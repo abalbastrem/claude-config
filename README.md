@@ -132,6 +132,7 @@ I el secret `CLAUDE_CODE_OAUTH_TOKEN` (de `claude setup-token`) a *Settings → 
 
 - **`permissions` és obligatori:** un workflow reutilitzable no pot tenir més permisos que el que el crida, i sense `pull-requests: write` no pot comentar.
 - **Quan corre:** quan s'obre un PR que no és un esborrany, quan un esborrany es marca com a llest i quan s'hi posa l'etiqueta `ai-review`. Per tornar-lo a llançar, cal treure l'etiqueta i tornar-la a posar.
+- **Idioma:** el del `CLAUDE.md` del projecte, a la base del PR, o el del `CLAUDE.md` d'aquest repo si el projecte no en té.
 - **Forks i Dependabot:** els PR que en vénen se salten sense error, perquè GitHub no els passa els secrets. No ho arreglis canviant a `pull_request_target`: executaria el prompt amb secrets sobre codi d'algú altre.
 
 **Seguretat.** El PR és entrada no fiable:
