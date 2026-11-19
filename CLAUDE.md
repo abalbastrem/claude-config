@@ -6,6 +6,7 @@ Aquestes són les preferències per a tots els projectes. Si el `CLAUDE.md` d'un
 
 - A Windows, fes servir sempre Git Bash, mai PowerShell.
 - Els secrets i els tokens no passen mai pel xat: digue'm on els he de posar i els poso jo.
+- **Eines i configuració fallen tancat.** Quan dues regles es contradiuen en settings, permisos, scripts o polítiques (per exemple, en fusionar una configuració compartida amb una de local), guanya la més restrictiva. Si no es pot aplicar, atura't sense canviar res i pregunta'm; no continuïs amb un avís. Entre aquest `CLAUDE.md` i el d'un projecte, en canvi, mana el del projecte, com diu més amunt.
 
 ## De la idea al codi
 
