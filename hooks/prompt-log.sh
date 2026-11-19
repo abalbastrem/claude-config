@@ -3,8 +3,8 @@
 # While .claude/prompt-log.active exists, appends every prompt to prompts.md
 # as ## Prompt N / model / tool / code block.
 # Labels: the first label line already in prompts.md decides. If it is a Spanish
-# template label (**Modelo:** / **Herramienta:**, e.g. a course template), it keeps
-# those; otherwise **Model:** / **Tool:**.
+# label (**Modelo:** / **Herramienta:**), it keeps those; otherwise **Model:** /
+# **Tool:**.
 # Only lines outside code blocks count, so a logged prompt can never change the
 # labels, the inherited model or the numbering.
 # Never blocks a prompt: every path ends in exit 0.
