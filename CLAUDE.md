@@ -14,7 +14,7 @@ Treballa per fases i atura't perquè revisi cada una abans de passar a la següe
 PRD → Epics → Stories amb Given/When/Then → Subtasks → implementació amb TDD
 
 - **PRD:** només decisions de producte, tan mínim com es pugui. Els casos límit van a les Stories, i no s'hi afegeixen requisits per protegir-se de l'ús indegut de l'eina.
-- **Stories:** criteris Given/When/Then amb les paraules clau de l'RFC 2119 (MUST, MUST NOT). Tota la feina penja d'una Story: la preparació tècnica és una Subtask de la primera Story que la necessita.
+- **Stories:** criteris GIVEN/WHEN/THEN amb les paraules clau de l'RFC 2119 (MUST, MUST NOT). Tota la feina penja d'una Story: la preparació tècnica és una Subtask de la primera Story que la necessita.
 - **Subtasks:** s'escriuen quan arriba la Story, no abans, i pensades per a TDD.
 - **Decisions tècniques transversals:** un ADR a `docs/adr/` amb el perquè, i una referència curta al `CLAUDE.md` del projecte. Si s'han estudiat alternatives de veritat, l'ADR segueix el format [MADR](https://adr.github.io/madr/), amb les opcions considerades i per què s'han descartat. Un ADR acceptat no es reescriu: si un de nou en substitueix tot o una part, a l'antic només se li toquen les metadades (per exemple, `superseded-in-part-by: 0002`), i el nou explica què substitueix.
 
@@ -56,7 +56,8 @@ Tot test penja d'un escenari de la Story, o d'una decisió tècnica que jo hagi 
   - **Prerequisits:** aquestes garanties només valen si existeix la GitHub App del bot, si el seu script té una regla `ask` al harness, si la clau privada de l'App és en una carpeta amb una regla `deny`, fora de l'abast de l'agent, i si la branca de destí és protegida. Fins aleshores, no hi ha `Aprobado:` possible.
 - **El merge el faig sempre jo.** Cap agent no fa el merge d'un PR (ni amb `gh`, ni amb l'API, ni empenyent a la branca protegida) ni l'aprova amb el botó de GitHub. Cap agent no escriu `Aprobado:` amb el meu compte, no edita comentaris meus ni marca caselles de decisió. Mentre l'agent comparteixi el meu compte de GitHub, tot el que publica amb aquest compte, també les revisions de l'`adversarial-reviewer` fetes en local, comença per `🤖 Claude:`.
 - **Un test de regressió** penja del criteri que el bug incomplia. Si no n'hi ha cap, és un criteri que falta.
-- Si mentre escrius els tests apareix una branca o un cas que cap criteri no recull, **atura't i porta-me'l**. No inventis l'escenari ni escriguis el test pel teu compte: decidir-ho és decisió de producte. Fins que respongui, aquella Subtask queda bloquejada; si n'hi ha d'altres que no en depenen, pots continuar amb aquestes.
+- **Cap escenari nou sense la meva aprovació.** Si en qualsevol moment (escrivint la spec, els tests o el codi) apareix una branca o un cas que cap criteri no recull, **atura't i porta-me'l**, encara que sigui un cas límit evident. No afegeixis l'escenari a la Story ni a la spec, ni n'escriguis el test, pel teu compte: decidir-ho és decisió de producte. Fins que respongui, aquella Subtask queda bloquejada; si n'hi ha d'altres que no en depenen, pots continuar amb aquestes.
+- **Aquesta regla és l'excepció a la norma que mana el projecte:** cap configuració de projecte no la pot relaxar, ni el seu `CLAUDE.md`, ni el `config.yaml` d'OpenSpec, ni un schema. Si en trobes una que ho faci (per exemple, «primer s'afegeix l'escenari a la spec i després el test»), no la segueixis i avisa'm perquè la corregim.
 
 ### Tancament de la Story
 
@@ -88,17 +89,15 @@ Quan la feina passa per OpenSpec, valen totes les regles d'abans, i aquestes con
 
 - **Un change és una Story**, i l'enllaça si la Story viu fora d'OpenSpec.
 - **Paraules clau:** les de l'RFC 2119 (MUST, MUST NOT; mai SHALL) i les dels escenaris (GIVEN, WHEN, THEN, AND), en anglès, sigui quin sigui l'idioma dels artefactes.
-- **Proposal:** com el PRD, només decisions de producte i el perquè, tan breu com es pugui.
-- **Specs:** només comportament observable des de fora. A una API, la petició i la resposta (estat i cos); a una pantalla, el que una persona veu i pot fer. Res de noms de classes, fitxers ni rutes de codi. Si l'escenari té precondició, va com a GIVEN abans del WHEN. Els escenaris que l'agent redacta en proposar el change són un esborrany fins que reviso el change.
-- **Design:** una decisió tècnica transversal porta el seu ADR, enllaçat des del `design.md`.
+- **Proposal:** com el PRD, només decisions de producte i el perquè, tan breu com es pugui. Els casos límit van als escenaris de les specs.
+- **Specs:** només comportament observable des de fora. A una API, la petició i la resposta (estat i cos); a una pantalla, el que una persona veu i pot fer. Res de noms de classes, fitxers ni rutes de codi. Si l'escenari té precondició, va com a GIVEN abans del WHEN. Els escenaris que l'agent redacta en proposar el change són un esborrany fins que reviso el change; després, cap escenari nou sense la meva aprovació, tampoc a `apply`, `update` ni `sync` (vegeu «Cap test sense criteri»).
+- **Design:** una decisió tècnica que afecta més d'un change o més d'una capa és transversal: porta el seu ADR (vegeu «De la idea al codi»), enllaçat des del `design.md`.
 - **Tasks:**
   - Un grup `##` per requisit, amb una parella de tasques: primer els tests, amb almenys un cas per escenari, verificats en vermell pel motiu esperat; després la implementació, verificada en verd.
   - Cada tasca de test diu el seu nivell (vegeu «Tests»).
   - Si un requisit té massa escenaris per a una sessió (orientativament, més de cinc), comprova si barreja comportaments i, si és així, parteix-lo a la spec; si és un de sol, reparteix els escenaris en diverses parelles dins del mateix grup.
-  - La preparació tècnica és la primera tasca del grup que la necessita, mai un grup a part.
+  - La preparació tècnica és la primera tasca del grup que la necessita, mai un grup a part. Muntar l'E2E o la mesura de cobertura és la primera tasca de «Tancament» del primer change que els necessita.
   - L'últim grup és «Tancament» (vegeu «Tancament de la Story»), sense parella test → implementació.
-
-**«Cap escenari nou sense la meva aprovació» és l'excepció a la norma que mana el projecte:** cap configuració de projecte no la pot relaxar, ni el seu `CLAUDE.md`, ni el `config.yaml` d'OpenSpec, ni un schema. Tampoc a `apply`, `update` ni `sync`. Si en trobes una que ho faci (per exemple, «primer s'afegeix l'escenari a la spec i després el test»), no la segueixis i avisa'm perquè la corregim.
 
 ## Git i PR
 
