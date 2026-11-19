@@ -119,10 +119,11 @@ jobs:
               findings; it never approves a decision.
 
             Do not post anything yourself. Your final answer IS the comment, and a later
-            step posts it as is. Write it in Spanish markdown: a verdict (pasa / no pasa),
-            then findings prioritized from most to least severe, each with file and line.
-            End with the line:
-            "> Revisión consultiva: no bloquea el merge."
+            step posts it as is. Write it in markdown, in the language the project's
+            `CLAUDE.md` is written in (if the project has none, the language of the shared
+            `CLAUDE.md`): a verdict (passes / does not pass), then findings prioritized from
+            most to least severe, each with file and line. End with one line, in that same
+            language, saying: "> Advisory review: it does not block the merge."
           claude_args: |
             --model sonnet
             --max-turns 30
