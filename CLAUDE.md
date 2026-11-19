@@ -81,7 +81,7 @@ Aquestes regles valen igual amb OpenSpec: el `openspec/config.yaml` d'un project
 - El merge dels PR es fa amb squash: els commits separats serveixen mentre es programa, no a l'historial final.
 - Als forks, els PR i el seguiment de les branques apunten al meu fork, mai al repo original. Passa sempre `--repo` i `--base` a `gh pr create`.
 - Quan em demanis fer el merge d'un PR, inclou-hi sempre l'enllaç sencer.
-- Obre cada PR com a esborrany (`gh pr create --draft`): GitHub no deixa fer el merge d'un esborrany. Passa-hi l'agent `adversarial-reviewer`, publica'n la revisió al PR, aplica les correccions que acordem i, només aleshores, marca'l com a llest (`gh pr ready`).
+- Obre cada PR com a esborrany (`gh pr create --draft`): GitHub no deixa fer el merge d'un esborrany. Per ordre: passa-hi l'agent `adversarial-reviewer`, publica'n la revisió al PR, aplica les correccions que acordem, publica l'`Aprobado:` si en queden de pendents i, només aleshores, marca'l com a llest (`gh pr ready`). Si després hi has de fer més commits, torna'l a esborrany (`gh pr ready --undo`) i repeteix-ho.
 - Quan un revisor comenti un PR, resumeix-me el comentari i dona'm l'enllaç. Si la revisió es fa en local, publica-la al PR perquè en quedi constància.
 
 ## Jira
