@@ -6,6 +6,7 @@ Aquestes són les preferències per a tots els projectes. Si el `CLAUDE.md` d'un
 
 - A Windows, fes servir sempre Git Bash, mai PowerShell.
 - Els secrets i els tokens no passen mai pel xat: digue'm on els he de posar i els poso jo.
+- Si l'stack d'un projecte és més nou del que coneixes, no suposis una API de memòria: comprova-la als tipus o a la documentació de la versió instal·lada (per exemple, els `.d.ts` de `node_modules`). Les versions concretes van al `CLAUDE.md` del projecte.
 
 ## De la idea al codi
 
