@@ -48,6 +48,8 @@ HOME=$h "$repo/install.sh" >/dev/null 2>&1
 check "agents is a link to the repo" 'links_to "$h/.claude/agents" "$repo/agents"'
 check "skills/matrix is a link to the repo" 'links_to "$h/.claude/skills/matrix" "$repo/skills/matrix"'
 check "skills/prompt-log is a link to the repo" 'links_to "$h/.claude/skills/prompt-log" "$repo/skills/prompt-log"'
+check "skills/commit is a link to the repo" 'links_to "$h/.claude/skills/commit" "$repo/skills/commit"'
+check "skills/priority-ticket is a link to the repo" 'links_to "$h/.claude/skills/priority-ticket" "$repo/skills/priority-ticket"'
 check "statusline-command.sh is a link to the repo" 'links_to "$h/.claude/statusline-command.sh" "$repo/statusline/statusline-command.sh"'
 
 echo "Second run changes nothing"
