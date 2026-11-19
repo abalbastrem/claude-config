@@ -6,7 +6,6 @@ Aquestes són les preferències per a tots els projectes. Si el `CLAUDE.md` d'un
 
 - A Windows, fes servir sempre Git Bash, mai PowerShell.
 - Els secrets i els tokens no passen mai pel xat: digue'm on els he de posar i els poso jo.
-- Si l'stack d'un projecte és més nou del que coneixes, no suposis una API de memòria: comprova-la als tipus o a la documentació de la versió instal·lada (per exemple, els `.d.ts` de `node_modules`). Les versions concretes van al `CLAUDE.md` del projecte.
 
 ## De la idea al codi
 
@@ -18,6 +17,7 @@ PRD → Epics → Stories amb GIVEN/WHEN/THEN → Subtasks → implementació am
 - **Stories:** criteris GIVEN/WHEN/THEN amb les paraules clau de l'RFC 2119 (MUST, MUST NOT). Tota la feina penja d'una Story: la preparació tècnica és una Subtask de la primera Story que la necessita.
 - **Subtasks:** s'escriuen quan arriba la Story, no abans, i pensades per a TDD.
 - **Decisions tècniques transversals:** un ADR a `docs/adr/` amb el perquè, i una referència curta al `CLAUDE.md` del projecte. Si s'han estudiat alternatives de veritat, l'ADR segueix el format [MADR](https://adr.github.io/madr/), amb les opcions considerades i per què s'han descartat. Un ADR acceptat no es reescriu: si un de nou en substitueix tot o una part, a l'antic només se li toquen les metadades (per exemple, `superseded-in-part-by: 0002`), i el nou explica què substitueix.
+- **Versions més noves del que coneixes:** les APIs canvien d'una versió a l'altra, així que no en suposis cap de memòria; comprova-la als tipus o a la documentació de la versió instal·lada (per exemple, els `.d.ts` de `node_modules`). Les versions concretes van al `CLAUDE.md` del projecte.
 
 ## Fitxers generats
 
