@@ -27,7 +27,7 @@ Abans de tocar res, comprova que hi són tots els fitxers del repo. També compr
 **Settings.** El `~/.claude/settings.json` no s'enllaça: Claude Code el reescriu, i hi ha coses d'aquesta màquina, com rutes locals o regles de l'auto mode que parlen dels teus repos. Per això `settings.shared.json` porta només el que és compartible: els permisos `deny` i `ask`, els hooks, la barra d'estat i les regles generals de l'auto mode. `install.sh` el fusiona al teu `settings.json`:
 
 - objecte per objecte, i a les llistes només hi afegeix el que falta;
-- un hook compta com a present si ja n'hi ha un amb el mateix script i arguments, amb qualsevol ruta;
+- un grup de hooks compartit compta com a present si ja n'hi ha un amb el mateix `matcher` que conté tots els seus hooks, amb la ruta d'aquest repo escrita de qualsevol manera (`~/…`, `$HOME/…`, `/c/…`, `C:/…`); un script del mateix nom d'un altre projecte no compta;
 - un valor que ja tens guanya; si és d'un altre tipus que el compartit (per exemple, `deny` com a text i no com a llista), ho avisa amb un `WARNING`, perquè aquella regla compartida no s'aplica;
 - `{{CLAUDE_CONFIG}}` es converteix en la ruta d'aquest repo, entre cometes i com a `$HOME/…` si és dins del `HOME`;
 - un `settings.json` buit compta com a `{}`, però si no és un objecte JSON s'atura sense tocar res;

@@ -121,20 +121,36 @@ done
 # settings.json can't be a link: Claude Code rewrites it, and it holds things of
 # this machine only. So the shareable part, settings.shared.json, is merged into
 # it: objects key by key, arrays adding only what is missing, and a value the
-# user already has always wins (a value of another type is reported). A hook
-# counts as present when a hook with the same script and arguments is there,
-# whatever path it uses. {{CLAUDE_CONFIG}} becomes this repo's path, as $HOME/…
-# when it lives under HOME. Not atomic against Claude Code writing the file at
-# the same moment; the backup covers that.
+# user already has always wins (a value of another type is reported). A shared
+# hook group counts as present when a group with the same matcher already holds
+# all its hooks, with this repo's path written any way (~/…, $HOME/…, /c/…,
+# C:/…, C:\…, quoted or not). {{CLAUDE_CONFIG}} becomes this repo's path, as
+# $HOME/… when it lives under HOME. Not atomic against Claude Code writing the
+# file at the same moment; the backup covers that.
 repo_path=$repo
-case "$repo" in "$(real "$HOME")"/*) repo_path="\$HOME${repo#"$(real "$HOME")"}" ;; esac
+reprs=("$repo")
+command -v cygpath >/dev/null 2>&1 && reprs+=("$(cygpath -m "$repo")")
+case "$repo" in "$(real "$HOME")"/*)
+  rel=${repo#"$(real "$HOME")"}
+  repo_path="\$HOME$rel"
+  reprs+=("\$HOME$rel" "~$rel")
+  ;;
+esac
+reprs_json=$(MSYS2_ARG_CONV_EXCL="*" jq -cn '$ARGS.positional | sort_by(-length)' --args "${reprs[@]}")
+export CLAUDE_CONFIG_REPRS=$reprs_json
 jq_merge='
-  def sig: if type == "object" and has("hooks")
-    then [.hooks[]?.command // empty | gsub("\""; "") | sub("^.*/hooks/"; "hooks/")] else . end;
+  ($ENV.CLAUDE_CONFIG_REPRS | fromjson) as $reprs |
+  def norm: gsub("\""; "") | gsub("\\\\"; "/") | reduce $reprs[] as $r (.; split($r) | join("{{CLAUDE_CONFIG}}"));
+  def nh: if type == "object" and has("command") then .command |= norm else . end;
+  def covers($g; $x):
+    ($g|type) == "object" and (($g.matcher // null) == ($x.matcher // null))
+    and ([$x.hooks[]? | nh] - [$g.hooks[]? | nh] | length == 0);
+  def present($a; $x):
+    if ($x|type) == "object" and ($x|has("hooks")) then $a | any(covers(.; $x)) else $a | any(. == $x) end;
   def merge($a; $b):
     if $a == null then $b
     elif ($a|type) == "object" and ($b|type) == "object" then reduce ($b|keys_unsorted[]) as $k ($a; .[$k] = merge($a[$k]; $b[$k]))
-    elif ($a|type) == "array" and ($b|type) == "array" then $a + [$b[] | . as $x | select(($a | any(sig == ($x|sig))) | not)]
+    elif ($a|type) == "array" and ($b|type) == "array" then $a + [$b[] | . as $x | select(present($a; $x) | not)]
     else $a end;
   def clashes($a; $b; $p):
     if ($a|type) == "object" and ($b|type) == "object" then ($b|keys_unsorted[]) as $k | clashes($a[$k]; $b[$k]; $p + [$k])
