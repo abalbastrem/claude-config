@@ -11,7 +11,7 @@ Aquestes són les preferències per a tots els projectes. Si el `CLAUDE.md` d'un
 
 Treballa per fases i atura't perquè revisi cada una abans de passar a la següent, perquè un error no es propagui cap avall:
 
-PRD → Epics → Stories amb Given/When/Then → Subtasks → implementació amb TDD
+PRD → Epics → Stories amb GIVEN/WHEN/THEN → Subtasks → implementació amb TDD
 
 - **PRD:** només decisions de producte, tan mínim com es pugui. Els casos límit van a les Stories, i no s'hi afegeixen requisits per protegir-se de l'ús indegut de l'eina.
 - **Stories:** criteris GIVEN/WHEN/THEN amb les paraules clau de l'RFC 2119 (MUST, MUST NOT). Tota la feina penja d'una Story: la preparació tècnica és una Subtask de la primera Story que la necessita.
