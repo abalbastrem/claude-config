@@ -63,7 +63,7 @@ HOME=$h "$repo/install.sh" >/dev/null 2>&1
 s="$h/.claude/settings.json"
 check "settings.json exists and is JSON" 'jq -e . "$s" >/dev/null 2>&1'
 check "it has the shared deny rules" 'jq -e ".permissions.deny | index(\"Bash(gh pr merge *)\")" "$s" >/dev/null'
-check "hook paths point to the repo" 'jq -r ".hooks.Stop[0].hooks[0].command" "$s" | grep -q "notify-sound.sh fi" && ! grep -q "{{CLAUDE_CONFIG}}" "$s"'
+check "hook paths point to the repo" 'jq -r ".hooks.Stop[0].hooks[0].command" "$s" | grep -q "/hooks/notify-sound.sh\" fi" && ! grep -q "{{CLAUDE_CONFIG}}" "$s"'
 
 echo "Shared settings: merged into existing ones, keeping everything else"
 h=$(fresh_home)

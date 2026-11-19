@@ -64,8 +64,14 @@ if [ -L "$settings" ]; then
   echo "ERROR: $settings is a link; merging would replace it. Turn it back into a normal file." >&2
   exit 1
 fi
-if [ -e "$settings" ] && ! jq -e . "$settings" >/dev/null 2>&1; then
-  echo "ERROR: $settings is not valid JSON; fix it before merging." >&2
+# An empty settings.json (say, truncated by a crash) counts as {}; anything else
+# must be a JSON object, or nothing is touched.
+current='{}'
+if [ -e "$settings" ] && [ -n "$(tr -d ' \t\r\n' < "$settings")" ]; then
+  current=$(cat "$settings")
+fi
+if [ "$(jq -r 'type' <<<"$current" 2>/dev/null | tr -d '\r')" != object ]; then
+  echo "ERROR: $settings is not a JSON object; fix it before running this again." >&2
   exit 1
 fi
 for dir in "$claude" "$claude/skills"; do
@@ -115,19 +121,32 @@ done
 # settings.json can't be a link: Claude Code rewrites it, and it holds things of
 # this machine only. So the shareable part, settings.shared.json, is merged into
 # it: objects key by key, arrays adding only what is missing, and a value the
-# user already has always wins. {{CLAUDE_CONFIG}} becomes this repo's path.
+# user already has always wins (a value of another type is reported). A hook
+# counts as present when a hook with the same script and arguments is there,
+# whatever path it uses. {{CLAUDE_CONFIG}} becomes this repo's path, as $HOME/…
+# when it lives under HOME. Not atomic against Claude Code writing the file at
+# the same moment; the backup covers that.
 repo_path=$repo
-case "$repo" in "$(real "$HOME")"/*) repo_path="~${repo#"$(real "$HOME")"}" ;; esac
-current='{}'
-[ -e "$settings" ] && current=$(cat "$settings")
-merged=$(jq --arg p "$repo_path" --slurpfile s "$shared" '
+case "$repo" in "$(real "$HOME")"/*) repo_path="\$HOME${repo#"$(real "$HOME")"}" ;; esac
+jq_merge='
+  def sig: if type == "object" and has("hooks")
+    then [.hooks[]?.command // empty | gsub("\""; "") | sub("^.*/hooks/"; "hooks/")] else . end;
   def merge($a; $b):
     if $a == null then $b
     elif ($a|type) == "object" and ($b|type) == "object" then reduce ($b|keys_unsorted[]) as $k ($a; .[$k] = merge($a[$k]; $b[$k]))
-    elif ($a|type) == "array" and ($b|type) == "array" then $a + [$b[] | . as $x | select(($a | any(. == $x)) | not)]
+    elif ($a|type) == "array" and ($b|type) == "array" then $a + [$b[] | . as $x | select(($a | any(sig == ($x|sig))) | not)]
     else $a end;
-  merge(.; $s[0] | walk(if type == "string" then split("{{CLAUDE_CONFIG}}") | join($p) else . end))' <<<"$current")
-if [ -e "$settings" ] && [ "$(jq -S . <<<"$merged")" = "$(jq -S . "$settings")" ]; then
+  def clashes($a; $b; $p):
+    if ($a|type) == "object" and ($b|type) == "object" then ($b|keys_unsorted[]) as $k | clashes($a[$k]; $b[$k]; $p + [$k])
+    elif $a == null or $b == null then empty
+    elif ($a|type) != ($b|type) then $p | join(".")
+    else empty end;
+  ($s[0] | walk(if type == "string" then split("{{CLAUDE_CONFIG}}") | join($p) else . end)) as $shared'
+merged=$(jq --arg p "$repo_path" --slurpfile s "$shared" "$jq_merge | merge(.; \$shared)" <<<"$current") \
+  || { echo "ERROR: could not merge $shared into $settings." >&2; exit 1; }
+jq -r --arg p "$repo_path" --slurpfile s "$shared" "$jq_merge | clashes(.; \$shared; [])" <<<"$current" | tr -d '\r' \
+  | while read -r path; do echo "WARNING  settings.json: $path has another type than in settings.shared.json; the shared value is not applied." >&2; done
+if [ -e "$settings" ] && [ "$(jq -S . <<<"$merged" | tr -d '\r')" = "$(jq -S . <<<"$current" | tr -d '\r')" ]; then
   echo "ok       settings.json"
 else
   if [ -e "$settings" ]; then
@@ -136,6 +155,10 @@ else
     echo "backup   settings.json → $backup/settings.json"
   fi
   tmp=$(mktemp "$claude/settings.json.XXXX")
-  jq . <<<"$merged" > "$tmp" && mv "$tmp" "$settings"
+  if ! { jq . <<<"$merged" | tr -d '\r' > "$tmp"; } || ! mv "$tmp" "$settings"; then
+    rm -f "$tmp"
+    echo "ERROR: could not write $settings; it is as it was." >&2
+    exit 1
+  fi
   echo "merged   settings.json ← $shared"
 fi

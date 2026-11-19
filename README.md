@@ -20,16 +20,18 @@ La resta (agents, skills i la barra d'estat) l'enllaça `install.sh`, que també
 ./install.sh
 ```
 
-Crea com a enllaços cap a aquest repo `~/.claude/agents`, una carpeta `~/.claude/skills/<nom>` per cada skill de `skills/` (una skill nova s'afegeix a la llista de `install.sh` i a `test-install.sh`) i `~/.claude/statusline-command.sh`. És idempotent: es pot tornar a executar després de clonar o quan s'hi afegeixi un enllaç. El que ja hi hagués i no fos l'enllaç bo es mou a una carpeta pròpia, `~/.claude/backup-AAAAMMDD-HHMMSS-XXXX/`, i mai no s'esborra. Si un enllaç antic apuntava a un altre lloc, el log diu on.
+Necessita `jq`. Crea com a enllaços cap a aquest repo `~/.claude/agents`, una carpeta `~/.claude/skills/<nom>` per cada skill de `skills/` (una skill nova s'afegeix a la llista de `install.sh` i a `test-install.sh`) i `~/.claude/statusline-command.sh`. És idempotent: es pot tornar a executar després de clonar o quan s'hi afegeixi un enllaç. El que ja hi hagués i no fos l'enllaç bo es mou a una carpeta pròpia, `~/.claude/backup-AAAAMMDD-HHMMSS-XXXX/`, i mai no s'esborra. Si un enllaç antic apuntava a un altre lloc, el log diu on.
 
 Abans de tocar res, comprova que hi són tots els fitxers del repo. També comprova que ni `~/.claude` ni `~/.claude/skills` siguin enllaços: si ho fossin, escriuria a través seu, potser dins d'aquest mateix repo, i per això s'atura.
 
 **Settings.** El `~/.claude/settings.json` no s'enllaça: Claude Code el reescriu, i hi ha coses d'aquesta màquina, com rutes locals o regles de l'auto mode que parlen dels teus repos. Per això `settings.shared.json` porta només el que és compartible: els permisos `deny` i `ask`, els hooks, la barra d'estat i les regles generals de l'auto mode. `install.sh` el fusiona al teu `settings.json`:
 
 - objecte per objecte, i a les llistes només hi afegeix el que falta;
-- un valor que ja tens sempre guanya;
-- `{{CLAUDE_CONFIG}}` es converteix en la ruta d'aquest repo (amb `~` si és dins del `HOME`);
-- abans d'escriure, en desa una còpia al backup;
+- un hook compta com a present si ja n'hi ha un amb el mateix script i arguments, amb qualsevol ruta;
+- un valor que ja tens guanya; si és d'un altre tipus que el compartit (per exemple, `deny` com a text i no com a llista), ho avisa amb un `WARNING`, perquè aquella regla compartida no s'aplica;
+- `{{CLAUDE_CONFIG}}` es converteix en la ruta d'aquest repo, entre cometes i com a `$HOME/…` si és dins del `HOME`;
+- un `settings.json` buit compta com a `{}`, però si no és un objecte JSON s'atura sense tocar res;
+- abans d'escriure, en desa una còpia al backup, i si no pot escriure, ho diu i el deixa com era;
 - si no hi ha res a afegir, no el toca.
 
 Per treure una regla compartida, treu-la de `settings.shared.json` **i** del teu `settings.json`: la fusió només afegeix.

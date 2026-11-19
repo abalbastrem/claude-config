@@ -13,16 +13,16 @@
   },
   "hooks": {
     "PermissionRequest": [
-      { "hooks": [{ "type": "command", "command": "bash {{CLAUDE_CONFIG}}/hooks/notify-sound.sh atencio", "async": true }] }
+      { "hooks": [{ "type": "command", "command": "bash \"{{CLAUDE_CONFIG}}/hooks/notify-sound.sh\" atencio", "async": true }] }
     ],
     "Stop": [
-      { "hooks": [{ "type": "command", "command": "bash {{CLAUDE_CONFIG}}/hooks/notify-sound.sh fi", "async": true }] }
+      { "hooks": [{ "type": "command", "command": "bash \"{{CLAUDE_CONFIG}}/hooks/notify-sound.sh\" fi", "async": true }] }
     ],
     "SessionStart": [
-      { "hooks": [{ "type": "command", "command": "bash {{CLAUDE_CONFIG}}/hooks/notify-sound.sh inici", "async": true }] }
+      { "hooks": [{ "type": "command", "command": "bash \"{{CLAUDE_CONFIG}}/hooks/notify-sound.sh\" inici", "async": true }] }
     ],
     "UserPromptSubmit": [
-      { "hooks": [{ "type": "command", "command": "bash {{CLAUDE_CONFIG}}/hooks/prompt-log.sh", "timeout": 10 }] }
+      { "hooks": [{ "type": "command", "command": "bash \"{{CLAUDE_CONFIG}}/hooks/prompt-log.sh\"", "timeout": 10 }] }
     ]
   },
   "statusLine": {
