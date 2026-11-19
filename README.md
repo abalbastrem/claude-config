@@ -20,7 +20,7 @@ La resta (agents, skills i la barra d'estat) l'enllaça `install.sh`. Claude Cod
 ./install.sh
 ```
 
-Crea com a enllaços cap a aquest repo `~/.claude/agents`, una carpeta `~/.claude/skills/<nom>` per cada skill de `skills/` i `~/.claude/statusline-command.sh`. És idempotent: es pot tornar a executar després de clonar o quan s'hi afegeixi un enllaç. El que ja hi hagués i no fos l'enllaç bo es mou a una carpeta pròpia, `~/.claude/backup-AAAAMMDD-HHMMSS-XXXX/`, i mai no s'esborra. Si un enllaç antic apuntava a un altre lloc, el log diu on.
+Crea com a enllaços cap a aquest repo `~/.claude/agents`, una carpeta `~/.claude/skills/<nom>` per cada skill de `skills/` (una skill nova s'afegeix a la llista de `install.sh` i a `test-install.sh`) i `~/.claude/statusline-command.sh`. És idempotent: es pot tornar a executar després de clonar o quan s'hi afegeixi un enllaç. El que ja hi hagués i no fos l'enllaç bo es mou a una carpeta pròpia, `~/.claude/backup-AAAAMMDD-HHMMSS-XXXX/`, i mai no s'esborra. Si un enllaç antic apuntava a un altre lloc, el log diu on.
 
 Abans de tocar res, comprova que hi són tots els fitxers del repo. També comprova que ni `~/.claude` ni `~/.claude/skills` siguin enllaços: si ho fossin, escriuria a través seu, potser dins d'aquest mateix repo, i per això s'atura.
 
