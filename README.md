@@ -14,7 +14,7 @@ Claude Code llegeix `~/.claude/CLAUDE.md` a tots els projectes. Aquest fitxer no
 
 Per comprovar que s'aplica, executa `/memory` dins de Claude Code. El `CLAUDE.md` s'importa en lloc d'enllaçar-se perquè `@` és el mecanisme propi de Claude Code i funciona a qualsevol màquina, sense cap requisit.
 
-La resta (agents, skills i la barra d'estat) l'enllaça `install.sh`. Claude Code només llegeix aquestes peces de `~/.claude/`, i amb un enllaç simbòlic llegeix el fitxer del repo tal com està, en lloc d'una còpia que es pot desfasar:
+La resta (agents, skills i la barra d'estat) l'enllaça `install.sh`, que també hi fusiona els settings compartits (vegeu més avall). Claude Code només llegeix aquestes peces de `~/.claude/`, i amb un enllaç simbòlic llegeix el fitxer del repo tal com està, en lloc d'una còpia que es pot desfasar:
 
 ```bash
 ./install.sh
@@ -24,7 +24,15 @@ Crea com a enllaços cap a aquest repo `~/.claude/agents`, una carpeta `~/.claud
 
 Abans de tocar res, comprova que hi són tots els fitxers del repo. També comprova que ni `~/.claude` ni `~/.claude/skills` siguin enllaços: si ho fossin, escriuria a través seu, potser dins d'aquest mateix repo, i per això s'atura.
 
-L'enllaç de la barra d'estat no l'activa per si sol: `~/.claude/settings.json` ha de tenir `"statusLine": { "type": "command", "command": "bash ~/.claude/statusline-command.sh" }`.
+**Settings.** El `~/.claude/settings.json` no s'enllaça: Claude Code el reescriu, i hi ha coses d'aquesta màquina, com rutes locals o regles de l'auto mode que parlen dels teus repos. Per això `settings.shared.json` porta només el que és compartible: els permisos `deny` i `ask`, els hooks, la barra d'estat i les regles generals de l'auto mode. `install.sh` el fusiona al teu `settings.json`:
+
+- objecte per objecte, i a les llistes només hi afegeix el que falta;
+- un valor que ja tens sempre guanya;
+- `{{CLAUDE_CONFIG}}` es converteix en la ruta d'aquest repo (amb `~` si és dins del `HOME`);
+- abans d'escriure, en desa una còpia al backup;
+- si no hi ha res a afegir, no el toca.
+
+Per treure una regla compartida, treu-la de `settings.shared.json` **i** del teu `settings.json`: la fusió només afegeix.
 
 **Per sistema:**
 
@@ -37,7 +45,8 @@ L'enllaç de la barra d'estat no l'activa per si sol: `~/.claude/settings.json` 
 
 - `hooks/notify-sound.sh`: fa sonar un avís de Windows quan Claude Code fa una pregunta, demana un permís o acaba. Necessita Windows i `python` al `PATH`.
 - `hooks/prompt-log.sh`: mentre existeix `.claude/prompt-log.active` al projecte, afegeix cada prompt a `prompts.md` (número, model, eina i el prompt literal). Si el fitxer ja fa servir les etiquetes en castellà `**Modelo:**` / `**Herramienta:**`, les manté; si no, escriu `**Model:**` / `**Tool:**`. El fa servir la skill `prompt-log`. Necessita `jq`.
-- `hooks/settings-hooks.json`: la definició dels hooks. Claude Code no pot importar-la, així que cal copiar-ne el bloc `hooks` a `~/.claude/settings.json`.
+
+Els hooks es registren a `settings.shared.json`, i `install.sh` els afegeix al `settings.json`.
 
 Els hooks, el `CLAUDE.md` i tot el que enllaça `install.sh` s'executen des d'aquesta carpeta tal com està, no des d'una còpia: si canvies de branca, canvia el que fa Claude a tots els projectes. Deixa la carpeta a `main` quan no hi estiguis treballant.
 

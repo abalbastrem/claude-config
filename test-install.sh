@@ -75,7 +75,7 @@ cat > "$h/.claude/settings.json" <<'JSON'
 JSON
 HOME=$h "$repo/install.sh" >/dev/null 2>&1
 s="$h/.claude/settings.json"
-check "own keys are kept" '[ "$(jq -r ".env.MINE, .theme, .permissions.additionalDirectories[0], .autoMode.allow[0]" "$s" | tr "\n" " ")" = "1 dark /somewhere my own rule " ]'
+check "own keys are kept" '[ "$(jq -r ".env.MINE, .theme, .permissions.additionalDirectories[0], .autoMode.allow[0]" "$s" | tr -d "\r" | tr "\n" "|")" = "1|dark|/somewhere|my own rule|" ]'
 check "own deny rules are kept" 'jq -e ".permissions.deny | index(\"Bash(rm -rf *)\")" "$s" >/dev/null'
 check "shared deny rules are added, none twice" '[ "$(jq "[.permissions.deny[] | select(. == \"PowerShell\")] | length" "$s")" = 1 ] && jq -e ".permissions.deny | index(\"Bash(gh pr merge *)\")" "$s" >/dev/null'
 check "the old settings.json is in the backup" '[ "$(jq -r .env.MINE "$h"/.claude/backup-*/settings.json 2>/dev/null)" = 1 ]'

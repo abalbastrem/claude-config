@@ -56,6 +56,18 @@ for entry in "${links[@]}"; do
   src="$repo/${entry#*:}"
   [ -e "$src" ] || { echo "ERROR: $src does not exist." >&2; exit 1; }
 done
+shared="$repo/settings.shared.json"
+settings="$claude/settings.json"
+command -v jq >/dev/null 2>&1 || { echo "ERROR: jq is needed to merge settings.shared.json." >&2; exit 1; }
+jq -e . "$shared" >/dev/null 2>&1 || { echo "ERROR: $shared is not valid JSON." >&2; exit 1; }
+if [ -L "$settings" ]; then
+  echo "ERROR: $settings is a link; merging would replace it. Turn it back into a normal file." >&2
+  exit 1
+fi
+if [ -e "$settings" ] && ! jq -e . "$settings" >/dev/null 2>&1; then
+  echo "ERROR: $settings is not valid JSON; fix it before merging." >&2
+  exit 1
+fi
 for dir in "$claude" "$claude/skills"; do
   if [ -L "$dir" ]; then
     echo "ERROR: $dir is itself a link (to $(readlink "$dir"))." >&2
@@ -99,3 +111,31 @@ for entry in "${links[@]}"; do
   ln -s "$src" "$dest"
   echo "linked   $name → $src"
 done
+
+# settings.json can't be a link: Claude Code rewrites it, and it holds things of
+# this machine only. So the shareable part, settings.shared.json, is merged into
+# it: objects key by key, arrays adding only what is missing, and a value the
+# user already has always wins. {{CLAUDE_CONFIG}} becomes this repo's path.
+repo_path=$repo
+case "$repo" in "$(real "$HOME")"/*) repo_path="~${repo#"$(real "$HOME")"}" ;; esac
+current='{}'
+[ -e "$settings" ] && current=$(cat "$settings")
+merged=$(jq --arg p "$repo_path" --slurpfile s "$shared" '
+  def merge($a; $b):
+    if $a == null then $b
+    elif ($a|type) == "object" and ($b|type) == "object" then reduce ($b|keys_unsorted[]) as $k ($a; .[$k] = merge($a[$k]; $b[$k]))
+    elif ($a|type) == "array" and ($b|type) == "array" then $a + [$b[] | . as $x | select(($a | any(. == $x)) | not)]
+    else $a end;
+  merge(.; $s[0] | walk(if type == "string" then split("{{CLAUDE_CONFIG}}") | join($p) else . end))' <<<"$current")
+if [ -e "$settings" ] && [ "$(jq -S . <<<"$merged")" = "$(jq -S . "$settings")" ]; then
+  echo "ok       settings.json"
+else
+  if [ -e "$settings" ]; then
+    [ -n "$backup" ] || backup=$(mktemp -d "$claude/backup-$(date +%Y%m%d-%H%M%S)-XXXX")
+    cp "$settings" "$backup/settings.json"
+    echo "backup   settings.json → $backup/settings.json"
+  fi
+  tmp=$(mktemp "$claude/settings.json.XXXX")
+  jq . <<<"$merged" > "$tmp" && mv "$tmp" "$settings"
+  echo "merged   settings.json ← $shared"
+fi
