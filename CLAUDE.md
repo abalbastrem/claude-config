@@ -18,6 +18,16 @@ PRD → Epics → Stories amb Given/When/Then → Subtasks → implementació am
 - **Subtasks:** s'escriuen quan arriba la Story, no abans, i pensades per a TDD.
 - **Decisions tècniques transversals:** un ADR a `docs/adr/` amb el perquè, i una referència curta al `CLAUDE.md` del projecte. Si s'han estudiat alternatives de veritat, l'ADR segueix el format [MADR](https://adr.github.io/madr/), amb les opcions considerades i per què s'han descartat. Un ADR acceptat no es reescriu: si un de nou en substitueix tot o una part, a l'antic només se li toquen les metadades (per exemple, `superseded-in-part-by: 0002`), i el nou explica què substitueix.
 
+## Fitxers generats
+
+Esquemes, registres, clients de tipus o components d'una llibreria copiats al repo. Cada projecte en declara la llista, una sola, que serveix alhora per al `deny` i per a l'exclusió de cobertura.
+
+- **No s'editen a mà.** Es canvia l'origen (la migració, la configuració, la ruta) i es regenera amb l'eina.
+- **Un component copiat d'una llibreria** no es personalitza al seu lloc: es fa un component propi que l'embolcalla.
+- **Si cal tocar-ne un de debò** (un bug de l'eina), atura't i porta-m'ho. No ho resolguis per un altre camí.
+- **Bloqueig:** regles `deny` d'`Edit` i `Write` al `.claude/settings.json` del projecte. Tapen el camí habitual, no el Bash.
+- **Xarxa:** la CI regenera els fitxers i falla si no coincideixen (`git diff --exit-code`). Si un projecte no ho pot fer, ho justifica al PR.
+
 ## Tests
 
 TDD diu quan escriure el test, no a quin nivell. Cada criteri es prova per defecte des de fora, i només es baixa de nivell quan compensa. Cada nivell té un paper (el perquè, amb les alternatives descartades, és a l'[ADR 0001](https://github.com/abalbastrem/claude-config/blob/main/docs/adr/0001-nivells-de-test-i-cobertura.md)):
@@ -54,7 +64,7 @@ L'última Subtask de cada Story (a OpenSpec, l'últim grup de `tasks.md`, encara
 
 La mètrica és la **cobertura de branques del codi nou de la Story** (el diff del PR contra la branca base), no la global. És un detector, no un objectiu: no hi ha llindar que bloquegi el PR.
 
-- **Fora de la mesura** queda el codi generat (components d'una llibreria que no s'editen a mà, esquemes i registres autogenerats). Cada projecte en declara la llista a la configuració de cobertura.
+- **Fora de la mesura** queden els fitxers generats, amb la llista del projecte (vegeu «Fitxers generats»).
 - **Sense eina no hi ha auditoria.** Si el projecte encara no mesura la cobertura, la mesura és preparació tècnica: una Subtask de la primera Story que la necessita, com qualsevol altra.
 - **Al PR hi va la sortida de l'eina**, no un resum escrit a mà, i al costat la classificació de cada branca no coberta:
 
