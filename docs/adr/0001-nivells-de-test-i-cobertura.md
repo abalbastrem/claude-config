@@ -1,6 +1,6 @@
 ---
 status: accepted
-superseded-in-part-by: 0002-aprovacio-per-pr
+superseded-in-part-by: [0002-aprovacio-per-pr, 0003-codi-de-metaprojecte]
 date: 2026-11-17
 decision-makers: abalbastrem
 ---

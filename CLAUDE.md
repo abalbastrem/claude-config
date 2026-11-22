@@ -31,6 +31,15 @@ Esquemes, registres, clients de tipus o components d'una llibreria copiats al re
 - **Bloqueig:** regles `deny` d'`Edit` i `Write` al `.claude/settings.json` del projecte. Tapen el camí habitual, no el Bash.
 - **Xarxa:** la CI regenera els fitxers i falla si no coincideixen (`git diff --exit-code`). Si un projecte no ho pot fer, ho justifica al PR.
 
+## Codi de metaprojecte
+
+Codi que no és el producte sinó una eina per treballar-hi: documentació servida (un visor d'OpenAPI), eines i scripts de desenvolupament. No és una feature, ni una capability, ni un escenari. El perquè és a l'[ADR 0003](docs/adr/0003-codi-de-metaprojecte.md).
+
+- **Fora del flux de producte.** No penja de cap Story, no porta escenaris ni tests, i queda fora de la mesura de cobertura.
+- **En fitxers propis.** L'exclusió de cobertura és per fitxers, així que el codi de metaprojecte no es barreja amb el del producte: si cal enganxar-lo (per exemple, registrar unes rutes), es fa des d'un fitxer seu.
+- **Una llista per projecte**, separada de la de fitxers generats: compta per a l'exclusió de cobertura, però no per al `deny`, perquè aquests fitxers sí que s'editen a mà.
+- **Entrar a la llista és decisió meva.** L'agent ho proposa i jo ho decideixo, com qualsevol altra decisió (vegeu «Cap test sense criteri»). L'`adversarial-reviewer` comprova que cap fitxer de la llista contingui comportament del producte.
+
 ## Tests
 
 TDD diu quan escriure el test, no a quin nivell. Cada criteri es prova per defecte des de fora, i només es baixa de nivell quan compensa. Cada nivell té un paper (el perquè, amb les alternatives descartades, és a l'[ADR 0001](https://github.com/abalbastrem/claude-config/blob/main/docs/adr/0001-nivells-de-test-i-cobertura.md)):
@@ -68,7 +77,7 @@ L'última Subtask de cada Story (a OpenSpec, l'últim grup de `tasks.md`, encara
 
 La mètrica és la **cobertura de branques del codi nou de la Story** (el diff del PR contra la branca base), no la global. És un detector, no un objectiu: no hi ha llindar que bloquegi el PR.
 
-- **Fora de la mesura** queden els fitxers generats, amb la llista del projecte (vegeu «Fitxers generats»).
+- **Fora de la mesura** queden els fitxers generats i el codi de metaprojecte, cadascun amb la seva llista del projecte (vegeu «Fitxers generats» i «Codi de metaprojecte»).
 - **Sense eina no hi ha auditoria.** Si el projecte encara no mesura la cobertura, la mesura és preparació tècnica: una Subtask de la primera Story que la necessita, com qualsevol altra.
 - **Al PR hi va la sortida de l'eina**, no un resum escrit a mà, i al costat la classificació de cada branca no coberta:
 
