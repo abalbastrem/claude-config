@@ -116,7 +116,7 @@ Va a `.github/workflows/matrix.yml` del projecte.
 
 ## Agents
 
-- `agents/adversarial-reviewer.md`: revisa un PR per trencar-lo, no per aprovar-lo. A més de bugs i seguretat, comprova les regles de tests del `CLAUDE.md`: que cada test pengi d'un criteri, el nivell de cada test, l'E2E i la classificació de la cobertura. Claude Code només llegeix agents d'usuari de `~/.claude/agents/`, que `install.sh` enllaça a `agents/`. Si un projecte té un agent amb el mateix nom a `.claude/agents/`, mana el del projecte.
+- `agents/adversarial-reviewer.md`: revisa un PR per trencar-lo, no per aprovar-lo. A més de bugs i seguretat, comprova les regles de tests del `CLAUDE.md`: que cada test pengi d'un criteri, el nivell de cada test, l'E2E, la classificació de la cobertura, la llista de metaprojecte i el README de cada capability. Claude Code només llegeix agents d'usuari de `~/.claude/agents/`, que `install.sh` enllaça a `agents/`. Si un projecte té un agent amb el mateix nom a `.claude/agents/`, mana el del projecte.
 
 ### El revisor adversarial al CI
 
