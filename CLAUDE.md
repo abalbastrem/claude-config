@@ -76,7 +76,7 @@ Tot test penja d'un escenari de la Story, o d'una decisió tècnica que jo hagi 
 
 ### Tancament de la Story
 
-L'última Subtask de cada Story (a OpenSpec, l'últim grup de `tasks.md`, encara que no sigui un requisit) és el tancament: l'E2E, si n'hi ha, l'auditoria de cobertura i el README de cada capability que toca (vegeu més avall). Si el projecte té matriu de traçabilitat, el seu `--check` ha d'estar en verd (cap test sense escenari, cap escenari sense test, en vermell o omès), i les branques noves no cobertes que mostra la vista viva de la matriu (també a `state.json`) són les que es classifiquen.
+L'última Subtask de cada Story (a OpenSpec, l'últim grup de `tasks.md`, encara que no sigui un requisit) és el tancament: l'E2E, si n'hi ha, l'auditoria de cobertura i el README de cada capability que toca (vegeu «README de capability», més avall). Si el projecte té matriu de traçabilitat, el seu `--check` ha d'estar en verd (cap test sense escenari, cap escenari sense test, en vermell o omès), i les branques noves no cobertes que mostra la vista viva de la matriu (també a `state.json`) són les que es classifiquen.
 
 La mètrica és la **cobertura de branques del codi nou de la Story** (el diff del PR contra la branca base), no la global. És un detector, no un objectiu: no hi ha llindar que bloquegi el PR.
 
@@ -98,7 +98,13 @@ La mètrica és la **cobertura de branques del codi nou de la Story** (el diff d
 
 La cobertura no veu l'altre forat: una branca coberta per un test que no penja de cap criteri. Aquest el busca l'agent `adversarial-reviewer` a cada PR, però és un revisor LLM: redueix el risc, no el garanteix.
 
-**README de cada capability que toca la Story**, al costat de la seva spec (a OpenSpec, `openspec/specs/<capability>/README.md`). Recull el que no és ni a la spec ni al contracte: el recorregut entre peces, el perquè de producte, el mapa del codi i què falta, i enllaça la spec, el disseny i el contracte sense copiar-los. S'escriu contrastant el codi amb la spec, no transcrivint el codi: així és un detector, com la cobertura. El que el codi fa i cap escenari no recull és un criteri que falta: atura't i porta-me'l (vegeu «Cap test sense criteri»). L'`adversarial-reviewer` comprova cada afirmació del README contra el codi.
+#### README de capability
+
+Si el projecte organitza el comportament per capabilities (a OpenSpec, cada spec n'és una), el tancament actualitza el README de cada capability que toca la Story, al costat de la seva spec (a OpenSpec, `openspec/specs/<capability>/README.md`). Sense capabilities, no n'hi ha.
+
+- **Què recull:** el que no és ni a la spec ni al contracte. És a dir, el recorregut entre peces, el mapa del codi i el que encara no té cap Story planificada. El perquè de producte hi és només com a enllaç a la proposal o al PRD. La spec, el disseny i el contracte també s'enllacen, sense copiar-los.
+- **Com s'escriu:** contrastant el codi amb la spec, no transcrivint el codi. Així funciona com a detector, igual que la cobertura. El que el codi fa i cap escenari no recull és un criteri que falta: atura't i porta-me'l (vegeu «Cap test sense criteri»). Mentre no responc, el README no el descriu i el tancament queda bloquejat.
+- **Qui ho comprova:** l'`adversarial-reviewer`. És un revisor LLM: redueix el risc, no el garanteix.
 
 ## OpenSpec
 
@@ -114,7 +120,7 @@ Quan la feina passa per OpenSpec, valen totes les regles d'abans, i aquestes con
   - Cada tasca de test diu el seu nivell (vegeu «Tests»).
   - Si un requisit té massa escenaris per a una sessió (orientativament, més de cinc), comprova si barreja comportaments i, si és així, parteix-lo a la spec; si és un de sol, reparteix els escenaris en diverses parelles dins del mateix grup.
   - La preparació tècnica és la primera tasca del grup que la necessita, mai un grup a part. Muntar l'E2E o la mesura de cobertura és la primera tasca de «Tancament» del primer change que els necessita.
-  - L'últim grup és «Tancament» (vegeu «Tancament de la Story»), sense parella test → implementació.
+  - L'últim grup és «Tancament» (vegeu «Tancament de la Story»), sense parella test → implementació. Si el projecte té capabilities, hi va la tasca del README de cada capability que toca.
 
 ## Git i PR
 
