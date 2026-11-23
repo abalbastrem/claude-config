@@ -4,6 +4,8 @@ Aquestes són les preferències per a tots els projectes. Si el `CLAUDE.md` d'un
 
 **La configuració falla tancat.** Quan dues regles es contradiuen en configuració que llegeix una màquina (settings, permisos, hooks, scripts d'instal·lació, CI), guanya la més restrictiva: `deny` per sobre d'`ask`, i `ask` per sobre d'`allow`. Si no és evident quina és més restrictiva, o no es pot aplicar, atura't sense canviar res i pregunta'm; no continuïs amb un avís. No val per a la prosa dels `CLAUDE.md`, on mana el del projecte, com diu la línia d'abans.
 
+**Abast.** Les regles de flux (de la idea al codi, Story, escenaris, tests, cobertura i OpenSpec) són per al producte. El codi de metaprojecte en queda fora, i només es defineix a la seva secció, «Codi de metaprojecte». Git, els PR i l'`adversarial-reviewer` sí que s'hi apliquen.
+
 ## Entorn
 
 - A Windows, fes servir sempre Git Bash, mai PowerShell.
@@ -30,6 +32,16 @@ Esquemes, registres, clients de tipus o components d'una llibreria copiats al re
 - **Si cal tocar-ne un de debò** (un bug de l'eina), atura't i porta-m'ho. No ho resolguis per un altre camí.
 - **Bloqueig:** regles `deny` d'`Edit` i `Write` al `.claude/settings.json` del projecte. Tapen el camí habitual, no el Bash.
 - **Xarxa:** la CI regenera els fitxers i falla si no coincideixen (`git diff --exit-code`). Si un projecte no ho pot fer, ho justifica al PR.
+
+## Codi de metaprojecte
+
+Codi que no és el producte sinó una eina per treballar-hi: documentació servida (un visor d'OpenAPI), eines i scripts de desenvolupament. No és una feature, ni una capability, ni un escenari. El perquè és a l'[ADR 0003](docs/adr/0003-codi-de-metaprojecte.md).
+
+- **El límit:** no és mai metaprojecte el que el producte desplegat serveix a algú o fa servir. Un visor d'OpenAPI que només es registra en desenvolupament ho és, encara que el fitxer es carregui a producció i allà no faci res. El mateix visor servit a producció, no.
+- **Fora del flux de producte.** No penja de cap Story, no porta escenaris ni tests, i queda fora de la mesura de cobertura.
+- **En fitxers propis.** L'exclusió de cobertura és per fitxers, així que el codi de metaprojecte no es barreja amb el del producte: si cal enganxar-lo (per exemple, registrar unes rutes), es fa des d'un fitxer seu.
+- **La llista del projecte** viu al seu `CLAUDE.md`, i és la font. L'exclusió de cobertura se'n deriva, i hi posa només els fitxers de la llista que cauen dins de l'`include` de l'eina de cobertura. És separada de la de fitxers generats i no compta per al `deny`, perquè els fitxers de metaprojecte sí que s'editen a mà.
+- **Entrar a la llista és decisió meva.** L'agent ho proposa amb opcions numerades i jo ho decideixo. L'entrada i qualsevol canvi en un fitxer que ja hi és surten a «Decisions preses» del PR. L'`adversarial-reviewer` comprova que els fitxers de la llista que toca el diff respectin el límit.
 
 ## Tests
 
@@ -68,7 +80,7 @@ L'última Subtask de cada Story (a OpenSpec, l'últim grup de `tasks.md`, encara
 
 La mètrica és la **cobertura de branques del codi nou de la Story** (el diff del PR contra la branca base), no la global. És un detector, no un objectiu: no hi ha llindar que bloquegi el PR.
 
-- **Fora de la mesura** queden els fitxers generats, amb la llista del projecte (vegeu «Fitxers generats»).
+- **Fora de la mesura** queden els fitxers generats i el codi de metaprojecte, cadascun amb la seva llista del projecte (vegeu «Fitxers generats» i «Codi de metaprojecte»).
 - **Sense eina no hi ha auditoria.** Si el projecte encara no mesura la cobertura, la mesura és preparació tècnica: una Subtask de la primera Story que la necessita, com qualsevol altra.
 - **Al PR hi va la sortida de l'eina**, no un resum escrit a mà, i al costat la classificació de cada branca no coberta:
 
