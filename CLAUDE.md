@@ -40,8 +40,8 @@ Codi que no és el producte sinó una eina per treballar-hi: documentació servi
 - **El límit:** no és mai metaprojecte el que el producte desplegat serveix a algú o fa servir. Un visor d'OpenAPI que només es registra en desenvolupament ho és, encara que el fitxer es carregui a producció i allà no faci res. El mateix visor servit a producció, no.
 - **Fora del flux de producte.** No penja de cap Story, no porta escenaris ni tests, i queda fora de la mesura de cobertura.
 - **En fitxers propis.** L'exclusió de cobertura és per fitxers, així que el codi de metaprojecte no es barreja amb el del producte: si cal enganxar-lo (per exemple, registrar unes rutes), es fa des d'un fitxer seu.
-- **La llista del projecte** viu al seu `CLAUDE.md`, i és la font. L'exclusió de cobertura se'n deriva, i hi posa només els fitxers que l'eina mesuraria. És separada de la de fitxers generats i no compta per al `deny`, perquè els fitxers de metaprojecte sí que s'editen a mà.
-- **Entrar a la llista és decisió meva.** L'agent ho proposa amb opcions numerades i jo ho decideixo. Qualsevol canvi en un fitxer que ja hi és surt a «Decisions preses» del PR. L'`adversarial-reviewer` comprova que els fitxers de la llista que toca el diff respectin el límit.
+- **La llista del projecte** viu al seu `CLAUDE.md`, i és la font. L'exclusió de cobertura se'n deriva, i hi posa només els fitxers de la llista que cauen dins de l'`include` de l'eina de cobertura. És separada de la de fitxers generats i no compta per al `deny`, perquè els fitxers de metaprojecte sí que s'editen a mà.
+- **Entrar a la llista és decisió meva.** L'agent ho proposa amb opcions numerades i jo ho decideixo. L'entrada i qualsevol canvi en un fitxer que ja hi és surten a «Decisions preses» del PR. L'`adversarial-reviewer` comprova que els fitxers de la llista que toca el diff respectin el límit.
 
 ## Tests
 
