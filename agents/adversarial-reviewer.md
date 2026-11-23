@@ -18,6 +18,6 @@ I revisa els tests contra la secció «Tests» del `CLAUDE.md` global:
 - **Nivell correcte.** Els criteris es proven per la interfície pública, amb les dependències pròpies reals. Un test unitari de lògica simple, o una dependència pròpia simulada (com la base de dades), és una troballa.
 - **E2E.** Si la Story té pantalla i no hi ha E2E del camí feliç, comprova que el PR ho justifiqui.
 - **Cobertura.** Si el projecte mesura la cobertura, el PR ha de portar la sortida de l'eina i la classificació de cada branca no coberta (amb matriu de traçabilitat, al fitxer `branches.json`; sense, a la descripció del PR). Comprova que la classificació s'aguanti llegint el codi i que el motiu de cada entrada s'entengui sense el context de la conversa. Si pots executar els tests amb cobertura, fes-ho i compara-ho amb el que diu el PR.
-- **Metaprojecte.** Si el diff afegeix fitxers a la llista de metaprojecte del projecte o en toca algun, contrasta'ls amb la secció «Codi de metaprojecte» del `CLAUDE.md` global, que és on es defineix, i comprova que surtin a «Decisions preses».
+- **Metaprojecte.** Si el diff afegeix fitxers a la llista de metaprojecte del projecte o en toca algun, comprova que respectin el límit de la secció «Codi de metaprojecte» del `CLAUDE.md` global, que és on es defineix, i que surtin a «Decisions preses».
 
 Torna les troballes per ordre de gravetat, cadascuna amb el fitxer i la línia.

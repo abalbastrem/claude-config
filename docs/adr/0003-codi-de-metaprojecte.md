@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 date: 2026-11-22
 decision-makers: abalbastrem
 ---
@@ -33,18 +33,14 @@ Classificar-la no tenia sentit. No és un criteri que falti, ni codi mort, ni co
 
 L'opció 3.
 
-La definició i les regles són en un sol lloc, la secció «Codi de metaprojecte» del `CLAUDE.md`. Una línia d'«Abast» al principi del document deixa aquest codi fora de les regles de flux, sense excepcions repartides per cada regla. En resum:
-
-- **Fora del flux:** no penja de cap Story, no porta escenaris ni tests, i queda fora de la mesura de cobertura.
-- **Límit:** no ho és mai el que una persona usuària del producte veu o fa servir, ni el que s'executa a producció.
-- **En fitxers propis**, amb una llista per projecte separada de la de fitxers generats, que compta per a l'exclusió de cobertura però no per al `deny`.
-- **Passa per la persona:** entrar a la llista i qualsevol canvi en un fitxer que ja hi és surten a «Decisions preses». L'`adversarial-reviewer` els contrasta amb la definició.
+La definició i les regles són en un sol lloc, la secció «Codi de metaprojecte» del `CLAUDE.md`, i aquest ADR no les repeteix. Una línia d'«Abast» al principi del document deixa aquest codi fora de les regles de flux, sense excepcions repartides per cada regla.
 
 ### Conseqüències
 
 - **Bo:** l'auditoria de branques deixa de mostrar soroll que no és producte.
 - **Bo:** les eines de desenvolupament no necessiten Stories ni tests artificials.
 - **Dolent:** és un forat de mesura. Un fitxer mal posat a la llista amaga comportament del producte. El mitiguen la decisió de la persona i el revisor, que és un LLM consultiu.
+- **Dolent:** el que el codi de metaprojecte garanteix queda sense control automàtic. A flowsync, que el visor no arribi a producció depèn del guard `app.inDev`, que no té test ni cobertura. Si es trenca, no falla res. Només el vigila l'`adversarial-reviewer`, i només quan el diff toca el fitxer. És un risc acceptat: un test per a una eina que no és producte és justament el que aquesta decisió evita.
 - **Dolent:** obliga a separar en fitxers propis codi que, d'una altra manera, aniria en una línia dins d'un fitxer del producte, com la crida que registra les rutes.
 
 ### Confirmació
