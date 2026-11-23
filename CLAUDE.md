@@ -76,7 +76,7 @@ Tot test penja d'un escenari de la Story, o d'una decisió tècnica que jo hagi 
 
 ### Tancament de la Story
 
-L'última Subtask de cada Story (a OpenSpec, l'últim grup de `tasks.md`, encara que no sigui un requisit) és el tancament: l'E2E, si n'hi ha, i l'auditoria de cobertura. Si el projecte té matriu de traçabilitat, el seu `--check` ha d'estar en verd (cap test sense escenari, cap escenari sense test, en vermell o omès), i les branques noves no cobertes que mostra la vista viva de la matriu (també a `state.json`) són les que es classifiquen.
+L'última Subtask de cada Story (a OpenSpec, l'últim grup de `tasks.md`, encara que no sigui un requisit) és el tancament: l'E2E, si n'hi ha, l'auditoria de cobertura i el README de cada capability que toca (vegeu més avall). Si el projecte té matriu de traçabilitat, el seu `--check` ha d'estar en verd (cap test sense escenari, cap escenari sense test, en vermell o omès), i les branques noves no cobertes que mostra la vista viva de la matriu (també a `state.json`) són les que es classifiquen.
 
 La mètrica és la **cobertura de branques del codi nou de la Story** (el diff del PR contra la branca base), no la global. És un detector, no un objectiu: no hi ha llindar que bloquegi el PR.
 
@@ -97,6 +97,8 @@ La mètrica és la **cobertura de branques del codi nou de la Story** (el diff d
 - **Sense matriu:** a la descripció del PR, en una taula (branca, classe, motiu).
 
 La cobertura no veu l'altre forat: una branca coberta per un test que no penja de cap criteri. Aquest el busca l'agent `adversarial-reviewer` a cada PR, però és un revisor LLM: redueix el risc, no el garanteix.
+
+**README de cada capability que toca la Story**, al costat de la seva spec (a OpenSpec, `openspec/specs/<capability>/README.md`). Recull el que no és ni a la spec ni al contracte: el recorregut entre peces, el perquè de producte, el mapa del codi i què falta, i enllaça la spec, el disseny i el contracte sense copiar-los. S'escriu contrastant el codi amb la spec, no transcrivint el codi: així és un detector, com la cobertura. El que el codi fa i cap escenari no recull és un criteri que falta: atura't i porta-me'l (vegeu «Cap test sense criteri»). L'`adversarial-reviewer` comprova cada afirmació del README contra el codi.
 
 ## OpenSpec
 
