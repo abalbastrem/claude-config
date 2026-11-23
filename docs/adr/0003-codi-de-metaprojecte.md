@@ -33,11 +33,12 @@ Classificar-la no tenia sentit. No és un criteri que falti, ni codi mort, ni co
 
 L'opció 3.
 
-- **Què és metaprojecte:** el codi que no és el producte sinó una eina per treballar-hi, com la documentació servida o les eines i scripts de desenvolupament. Si una persona usuària del producte en veu o en fa servir el comportament, no ho és.
+La definició i les regles són en un sol lloc, la secció «Codi de metaprojecte» del `CLAUDE.md`. Una línia d'«Abast» al principi del document deixa aquest codi fora de les regles de flux, sense excepcions repartides per cada regla. En resum:
+
 - **Fora del flux:** no penja de cap Story, no porta escenaris ni tests, i queda fora de la mesura de cobertura.
-- **En fitxers propis:** l'exclusió és per fitxers, així que aquest codi no es barreja amb el del producte.
-- **Llista pròpia per projecte**, separada de la de fitxers generats: compta per a l'exclusió de cobertura, no per al `deny`.
-- **Entrar a la llista és decisió de la persona.** L'`adversarial-reviewer` comprova que cap fitxer de la llista contingui comportament del producte.
+- **Límit:** no ho és mai el que una persona usuària del producte veu o fa servir, ni el que s'executa a producció.
+- **En fitxers propis**, amb una llista per projecte separada de la de fitxers generats, que compta per a l'exclusió de cobertura però no per al `deny`.
+- **Passa per la persona:** entrar a la llista i qualsevol canvi en un fitxer que ja hi és surten a «Decisions preses». L'`adversarial-reviewer` els contrasta amb la definició.
 
 ### Conseqüències
 
@@ -48,4 +49,4 @@ L'opció 3.
 
 ### Confirmació
 
-A flowsync (PR #37), el registre de les rutes d'OpenAPI passa a un fitxer propi (`start/openapi.ts`). Aquest fitxer i `config/openapi.ts` entren a la llista de metaprojecte de l'exclusió de cobertura, i la classificació de la branca `app.inDev` desapareix de `branches.json`.
+A flowsync (PR #37), el registre de les rutes d'OpenAPI passa a un fitxer propi (`start/openapi.ts`). Aquest fitxer s'exclou de la cobertura a `.c8rc.json`. `config/openapi.ts` també és a la llista del projecte, però no cal excloure'l, perquè c8 només mesura `app/` i `start/`. La classificació de la branca `app.inDev` desapareix de `branches.json`.

@@ -4,6 +4,8 @@ Aquestes són les preferències per a tots els projectes. Si el `CLAUDE.md` d'un
 
 **La configuració falla tancat.** Quan dues regles es contradiuen en configuració que llegeix una màquina (settings, permisos, hooks, scripts d'instal·lació, CI), guanya la més restrictiva: `deny` per sobre d'`ask`, i `ask` per sobre d'`allow`. Si no és evident quina és més restrictiva, o no es pot aplicar, atura't sense canviar res i pregunta'm; no continuïs amb un avís. No val per a la prosa dels `CLAUDE.md`, on mana el del projecte, com diu la línia d'abans.
 
+**Abast.** Les regles de flux (de la idea al codi, Story, escenaris, tests i cobertura) són per al producte. El codi de metaprojecte en queda fora, i només es defineix a la seva secció, «Codi de metaprojecte».
+
 ## Entorn
 
 - A Windows, fes servir sempre Git Bash, mai PowerShell.
@@ -35,10 +37,11 @@ Esquemes, registres, clients de tipus o components d'una llibreria copiats al re
 
 Codi que no és el producte sinó una eina per treballar-hi: documentació servida (un visor d'OpenAPI), eines i scripts de desenvolupament. No és una feature, ni una capability, ni un escenari. El perquè és a l'[ADR 0003](docs/adr/0003-codi-de-metaprojecte.md).
 
+- **Què no ho és mai:** el que una persona usuària del producte veu o fa servir, i el que s'executa a producció. Un visor d'OpenAPI que només existeix en desenvolupament és metaprojecte; el mateix visor servit a producció, no.
 - **Fora del flux de producte.** No penja de cap Story, no porta escenaris ni tests, i queda fora de la mesura de cobertura.
 - **En fitxers propis.** L'exclusió de cobertura és per fitxers, així que el codi de metaprojecte no es barreja amb el del producte: si cal enganxar-lo (per exemple, registrar unes rutes), es fa des d'un fitxer seu.
-- **Una llista per projecte**, separada de la de fitxers generats: compta per a l'exclusió de cobertura, però no per al `deny`, perquè aquests fitxers sí que s'editen a mà.
-- **Entrar a la llista és decisió meva.** L'agent ho proposa i jo ho decideixo, com qualsevol altra decisió (vegeu «Cap test sense criteri»). L'`adversarial-reviewer` comprova que cap fitxer de la llista contingui comportament del producte.
+- **Una llista per projecte**, separada de la de fitxers generats: compta per a l'exclusió de cobertura, però no per al `deny`, perquè els fitxers de metaprojecte sí que s'editen a mà.
+- **Passa per mi:** afegir un fitxer a la llista i qualsevol canvi en un que ja hi és surten a «Decisions preses» del PR. L'`adversarial-reviewer` contrasta els fitxers de la llista que toca el diff amb aquesta secció.
 
 ## Tests
 
